@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Halo Navigator</title>
+  <style>
+    :root {
+      --bg: #264653;
+      --card-bg: rgba(255, 255, 255, 0.04);
+      --input-bg: #1a3039;
+      --text: #ffffff;
+      --text-muted: rgba(255, 255, 255, 0.4);
+      --border: rgba(255, 255, 255, 0.1);
+      --accent: #00ff87;
+      --indigo: #818cf8;
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --cyan: #06b6d4;
+      --emerald: #10b981;
+    }
+    body { width: 480px; margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; }
+    
+    .header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; font-size: 14px; }
+    
+    .tabs { display: flex; border-bottom: 1px solid var(--border); width: 100%; }
+    .tab-btn { flex: 1; padding: 12px 5px; background: transparent; border: none; color: var(--text-muted); font-size: 9px; font-weight: 900; cursor: pointer; text-transform: uppercase; letter-spacing: 0.1em; transition: all 0.2s; white-space: nowrap; }
+    .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); background: rgba(255,255,255,0.02); }
+    
+    .view { display: none; padding: 16px; height: 500px; overflow-y: auto; box-sizing: border-box; }
+    .view.active { display: block; }
+    .view::-webkit-scrollbar { width: 6px; }
+    .view::-webkit-scrollbar-track { background: transparent; }
+    .view::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 20px; padding: 18px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+    .card-title { font-size: 10px; font-weight: 900; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; letter-spacing: 0.15em; opacity: 0.8; }
+
+    .help-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 12px; display: flex; gap: 14px; align-items: flex-start; }
+    .help-icon { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 900; font-size: 14px; }
+    .help-content { flex: 1; }
+    .help-title { font-size: 12px; font-weight: 900; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .help-text { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+
+    .input-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+    .input-label { font-size: 8px; font-weight: 900; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-left: 4px; }
+    
+    input, select { background: var(--input-bg); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 10px; width: 100%; box-sizing: border-box; font-size: 12px; outline: none; transition: border-color 0.2s; }
+    input:focus, select:focus { border-color: var(--accent); }
+    
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    
+    .btn { width: 100%; padding: 14px; background: var(--accent); color: var(--bg); border: none; border-radius: 14px; font-weight: 900; text-transform: uppercase; cursor: pointer; transition: 0.2s; font-size: 11px; letter-spacing: 0.1em; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 10px 20px rgba(0,255,135,0.15); }
+    .btn:hover { filter: brightness(1.1); transform: scale(1.02); }
+    .btn:active { transform: scale(0.98); }
+    
+    .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--border); }
+    .range-wrap { flex: 1; display: flex; align-items: center; gap: 10px; }
+    .range-label { font-size: 8px; font-weight: 900; text-transform: uppercase; color: var(--text-muted); }
+    input[type="range"] { padding: 0; height: 4px; background: var(--border); accent-color: var(--accent); }
+
+    .item-list { display: flex; flex-direction: column; gap: 10px; padding-bottom: 40px; }
+    .item-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 18px; padding: 14px; display: flex; align-items: center; gap: 14px; transition: 0.2s; border-left: 4px solid transparent; text-decoration: none; }
+    .item-card:hover { border-color: var(--accent); background: rgba(255,255,255,0.06); transform: translateX(4px); }
+    
+    .color-box { width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px; box-shadow: inset 0 0 10px rgba(0,0,0,0.2); }
+    .item-info { flex: 1; min-width: 0; }
+    .item-header { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+    .item-name { font-weight: 900; font-size: 13px; color: #fff; }
+    .item-meta { font-size: 10px; color: var(--text-muted); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
+    
+    .badge { font-size: 7px; font-weight: 900; text-transform: uppercase; background: rgba(0,0,0,0.3); color: var(--accent); padding: 1px 6px; border-radius: 4px; letter-spacing: 0.05em; border: 1px solid rgba(0,255,135,0.1); }
+    .badge.red { color: var(--red); border-color: rgba(239, 68, 68, 0.1); }
+    .badge.blue { color: var(--indigo); border-color: rgba(129, 140, 248, 0.1); }
+
+    .actions { display: flex; gap: 4px; opacity: 0.4; transition: 0.2s; }
+    .item-card:hover .actions { opacity: 1; }
+    .act-btn { background: transparent; border: none; color: white; cursor: pointer; padding: 6px; border-radius: 8px; }
+    .act-btn:hover { background: rgba(255,255,255,0.1); color: var(--accent); }
+    .act-btn.del:hover { color: var(--red); }
+
+    .footer { padding: 20px; border-top: 1px solid var(--border); background: linear-gradient(to top, var(--bg), transparent); }
+    
+    #rule-edit-actions, #cmd-edit-actions { display: none; gap: 10px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <img src="images/HN16.png" style="width:16px; height:16px;">
+      HALO NAVIGATOR
+    </div>
+    <button id="open-options" style="background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--text-muted); border-radius:8px; padding:6px 12px; cursor:pointer; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:0.1em;">Settings</button>
+  </div>
+  
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="rules-view">Rules</button>
+    <button class="tab-btn" data-tab="shortcuts-view">Shortcuts</button>
+    <button class="tab-btn" data-tab="links-view">Links</button>
+    <button class="tab-btn" data-tab="tools-view">Tools</button>
+    <button class="tab-btn" data-tab="help-view">Help</button>
+  </div>
+
+  <div id="rules-view" class="view active">
+    <div class="card">
+      <div class="card-title" id="rule-form-title">Environment Rules</div>
+      
+      <div class="row">
+        <div class="input-group">
+          <span class="input-label">Label</span>
+          <input type="text" id="rule-label" placeholder="e.g. Production">
+        </div>
+        <div class="input-group">
+          <span class="input-label">Pattern</span>
+          <input type="text" id="rule-pattern" placeholder="e.g. tenant.haloitsm.com">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="input-group">
+          <span class="input-label">Visual Style</span>
+          <select id="rule-style">
+            <option value="full">Full Background</option>
+            <option value="border">Border</option>
+            <option value="top-bar">Top Bar</option>
+            <option value="glow">Glow</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <span class="input-label">Color</span>
+          <input type="color" id="rule-color" value="#00ff87" style="height: 38px; padding: 4px; cursor: pointer;">
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="range-wrap">
+          <span class="range-label">Intensity: <span id="strength-val" style="color:var(--accent)">5</span></span>
+          <input type="range" id="rule-strength" min="0" max="10" value="5">
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="rule-hide-label" style="width:16px; height:16px;">
+          <label for="rule-hide-label" class="range-label" style="cursor:pointer;">Hide Label</label>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="range-label">Pos:</span>
+          <select id="rule-label-position" style="width:70px; padding:4px; font-size:10px; font-weight:900;">
+            <option value="left">Left</option>
+            <option value="center">Center</option>
+            <option value="right" selected>Right</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn" id="rule-create">Add Rule</button>
+      <div id="rule-edit-actions">
+        <button class="btn" style="background:rgba(255,255,255,0.1); color:white;" id="rule-cancel">Cancel</button>
+        <button class="btn" id="rule-update">Update</button>
+      </div>
+    </div>
+
+    <div class="card-title">Active Rules</div>
+    <div id="rules-list" class="item-list"></div>
+  </div>
+
+  <div id="shortcuts-view" class="view">
+    <div class="card">
+      <div class="card-title" id="cmd-form-title">Shortcut Settings</div>
+      <div class="row" style="grid-template-columns: 80px 1fr;">
+        <div class="input-group">
+          <span class="input-label">Code</span>
+          <div style="position:relative;">
+            <span style="position:absolute; left:10px; top:10px; color:var(--accent); font-weight:900;">#</span>
+            <input type="text" id="cmd-code" placeholder="AS" style="padding-left:24px;">
+          </div>
+        </div>
+        <div class="input-group">
+          <span class="input-label">Path/URL</span>
+          <input type="text" id="cmd-path" placeholder="/assets">
+        </div>
+      </div>
+      <button class="btn" id="cmd-add" style="background:var(--accent); color:var(--bg);">Add Shortcut</button>
+      <div id="cmd-edit-actions">
+        <button class="btn" style="background:rgba(255,255,255,0.1); color:white;" id="cmd-cancel">Cancel</button>
+        <button class="btn" id="cmd-update" style="background:var(--accent); color:var(--bg);">Update</button>
+      </div>
+    </div>
+    <div class="card-title">Registered Shortcuts</div>
+    <div id="commands-list" class="item-list"></div>
+  </div>
+
+  <div id="links-view" class="view">
+    <div class="card-title">Halo Resources</div>
+    <div class="item-list">
+      <a href="https://support.haloservicedesk.com/portal/" target="_blank" class="item-card">
+        <div class="color-box" style="background:rgba(0,255,135,0.1); color:var(--accent);">S</div>
+        <div class="item-info"><div class="item-name">Halo Support</div><div class="item-meta">support.haloservicedesk.com</div></div>
+      </a>
+      <a href="https://community.haloitsm.com/" target="_blank" class="item-card">
+        <div class="color-box" style="background:rgba(0,255,135,0.1); color:var(--accent);">C</div>
+        <div class="item-info"><div class="item-name">Halo Community</div><div class="item-meta">community.haloitsm.com</div></div>
+      </a>
+      <a href="https://discord.com/channels/1050832376185495562" target="_blank" class="item-card">
+        <div class="color-box" style="background:rgba(0,255,135,0.1); color:var(--accent);">D</div>
+        <div class="item-info"><div class="item-name">Admin Hangout</div><div class="item-meta">discord.com/haloitsm</div></div>
+      </a>
+      <a href="https://usehalo.com/haloitsm/roadmap/" target="_blank" class="item-card">
+        <div class="color-box" style="background:rgba(245,158,11,0.1); color:var(--amber);">R</div>
+        <div class="item-info"><div class="item-name">Product Roadmap</div><div class="item-meta">usehalo.com/roadmap</div></div>
+      </a>
+      <a href="https://haloreleases.remmy.dev/" target="_blank" class="item-card">
+        <div class="color-box" style="background:rgba(6, 182, 212, 0.1); color:var(--cyan);">RN</div>
+        <div class="item-info"><div class="item-name">Halo Release Notes</div><div class="item-meta">haloreleases.remmy.dev</div></div>
+      </a>
+      <a href="https://status.haloitsm.com/" target="_blank" class="item-card">
+        <div class="color-box" style="background:rgba(239,68,68,0.1); color:var(--red);">ST</div>
+        <div class="item-info"><div class="item-name">System Status</div><div class="item-meta">status.haloitsm.com</div></div>
+      </a>
+      <a href="mailto:halonavigator@gmail.com" class="item-card">
+        <div class="color-box" style="background:rgba(129,140,248,0.1); color:var(--indigo);">M</div>
+        <div class="item-info"><div class="item-name">Contact Support</div><div class="item-meta">halonavigator@gmail.com</div></div>
+      </a>
+    </div>
+  </div>
+
+  <div id="tools-view" class="view">
+    <div class="card">
+      <div class="card-title">Reporting Hub</div>
+      <p style="font-size:11px; color:var(--text-muted); line-height:1.5; margin-bottom:16px;">Launch the advanced SQL Query Generator to build complex HaloITSM reports with ease.</p>
+      <button class="btn" id="open-sql-gen" style="background:var(--accent); color:var(--bg);">Launch SQL Generator</button>
+    </div>
+    <div class="card">
+      <div class="card-title">QA Utilities</div>
+      <p style="font-size:11px; color:var(--text-muted); line-height:1.5; margin-bottom:16px;">Instantly fill visible form fields with context-aware mock data to test your ticket workflows.</p>
+      <button class="btn" id="magic-fill-btn" style="background:var(--accent); color:var(--bg);">✨ Magic Fill Form</button>
+    </div>
+  </div>
+
+  <div id="help-view" class="view">
+    <div style="text-align:center; margin-bottom:24px;">
+      <div style="width:48px; height:48px; background:rgba(0,255,135,0.1); color:var(--accent); border-radius:16px; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; font-size:24px; font-weight:900;">?</div>
+      <h2 style="font-size:16px; font-weight:900; text-transform:uppercase; letter-spacing:0.1em; margin:0;">Help & Guide</h2>
+      <p style="font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.2em; margin:4px 0 0;">Master your environment</p>
+    </div>
+
+    <div class="help-card">
+      <div class="help-icon" style="background:rgba(129,140,248,0.1); color:var(--indigo);">P</div>
+      <div class="help-content">
+        <div class="help-title" style="color:var(--indigo);">Tab Visuals (Rules)</div>
+        <div class="help-text">Define URL patterns (e.g. <b>tenant.haloitsm.com</b>). When matched, the tab will glow or change color so you never work in the wrong environment.</div>
+      </div>
+    </div>
+
+    <div class="help-card">
+      <div class="help-icon" style="background:rgba(245,158,11,0.1); color:var(--amber);">#</div>
+      <div class="help-content">
+        <div class="help-title" style="color:var(--amber);">Palette Hotkeys (#)</div>
+        <div class="help-text">Press <b>#</b> anywhere in Halo (outside of text fields) to open the jump palette. Type a code like <b>#prod</b> or <b>#as</b> to navigate instantly.</div>
+      </div>
+    </div>
+
+    <div class="help-card">
+      <div class="help-icon" style="background:rgba(6,182,212,0.1); color:var(--cyan);">SQL</div>
+      <div class="help-content">
+        <div class="help-title" style="color:var(--cyan);">SQL Reporting Hub</div>
+        <div class="help-text">Use the SQL Generator in the Tools tab to build complex reports. It automatically handles table relationships and join logic for you.</div>
+      </div>
+    </div>
+
+    <div class="help-card">
+      <div class="help-icon" style="background:rgba(16,185,129,0.1); color:var(--emerald);">✨</div>
+      <div class="help-content">
+        <div class="help-title" style="color:var(--emerald);">Magic Form Filler</div>
+        <div class="help-text">QA your ticket workflows in seconds. Click <b>Magic Fill</b> in the Tools tab (or use <b>#fill</b>) to populate forms with realistic test data.</div>
+      </div>
+    </div>
+
+    <div style="margin-top:24px; padding:16px; border-top:1px solid var(--border); text-align:center;">
+       <p style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em;">Halo Navigator v1.1.0</p>
+    </div>
+  </div>
+
+  <div class="footer" id="footer-actions">
+    <button class="btn" id="global-save">Save & Apply All</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
