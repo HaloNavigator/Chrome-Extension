@@ -1,5 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { ThemeConfig } from '../App';
+import { GlobeIcon, FileJsonIcon } from './Icons';
 
 const SCHEMA_STRING = `
   CREATE TABLE [ApprovalProcess] ([APid] int PRIMARY KEY, [APName] nvarchar) GO
@@ -78,7 +80,7 @@ const SCHEMA_STRING = `
 
 const JOINMAP_INPUT: Record<string, Record<string, string>> = {
   "Actions": { "Faults": "[Actions].[Faultid] = [Faults].[Faultid]" },
-  "Appointment": { "Faults": "[Appointment].[APFaultid] = [Faults].[Faultid]", "Uname": "[Appointment].[APunum] = [Uname].[UNum]" },
+  "Appointment": { "Faults": "[Appointment].[APFaultid] = [Faults].[Faultid]", "Uname": "[Appointment].[APunum] = [Uname].[UnameID]" },
   "ApprovalProcess": { "FaultApproval": "[ApprovalProcess].[APid] = [FaultApproval].[FAApid]" },
   "Area": { "Faults": "[Area].[AArea] = [Faults].[Areaint]", "Site": "[Area].[AArea] = [Site].[SArea]", "Tree": "[Area].[AtreeID] = [Tree].[TreeID]" },
   "CategoryDetail": { "Faults": "[CategoryDetail].[CDCategoryName] = [Faults].[Category5]" },
@@ -97,7 +99,11 @@ interface Table { name: string; columns: Column[]; }
 interface JoinInfo { from: string; to: string; condition: string; }
 interface WhereCondition { id: string; table: string; column: string; operator: string; value: string; operatorType: 'AND' | 'OR'; }
 
-export const SqlGeneratorView: React.FC = () => {
+interface SqlGeneratorViewProps {
+  themeConfig?: ThemeConfig;
+}
+
+export const SqlGeneratorView: React.FC<SqlGeneratorViewProps> = ({ themeConfig }) => {
   const [tables, setTables] = useState<Record<string, Table>>({});
   const [allPotentialJoins, setAllPotentialJoins] = useState<JoinInfo[]>([]);
   const [selectedTables, setSelectedTables] = useState<Record<string, { columns: string[], isStar: boolean }>>({});
@@ -108,6 +114,14 @@ export const SqlGeneratorView: React.FC = () => {
   const [tableSearch, setTableSearch] = useState('');
   const [joinSearch, setJoinSearch] = useState('');
   const [copied, setCopied] = useState(false);
+
+  const isDarkMode = themeConfig?.mode === 'dark';
+  const accentColor = themeConfig?.primaryColor || '#00ff87';
+  const bgColor = isDarkMode ? '#264653' : '#f8fafc';
+  const panelBg = isDarkMode ? '#1a202c' : '#ffffff';
+  const inputBg = isDarkMode ? '#0a0c10' : '#f1f5f9';
+  const borderColor = isDarkMode ? '#2d3748' : '#e2e8f0';
+  const textColor = isDarkMode ? '#e2e8f0' : '#1e293b';
 
   const requestTypeMap: Record<string, number[]> = { 'All': [], 'Incident': [1], 'Change': [2], 'Problem': [3], 'Service Request': [4] };
 
@@ -161,48 +175,57 @@ export const SqlGeneratorView: React.FC = () => {
     return sortedTableNames.filter(name => name.toLowerCase().includes(tableSearch.toLowerCase()));
   }, [sortedTableNames, tableSearch]);
 
-  // Fix: Explicitly type allAvailableColumns to avoid inference issues resulting in 'unknown' type.
   const allAvailableColumns: { table: string; name: string }[] = useMemo(() => {
-    const active = new Set([...Object.keys(selectedTables), ...(Object.values(selectedJoins) as JoinInfo[]).flatMap(j => [j.from, j.to])]);
+    const active = new Set<string>();
+    Object.keys(selectedTables).forEach(t => active.add(t));
+    (Object.values(selectedJoins) as JoinInfo[]).forEach(j => {
+      active.add(j.from);
+      active.add(j.to);
+    });
     if (active.size === 0) active.add('Faults');
     const cols: { table: string, name: string }[] = [];
-    active.forEach(t => tables[t]?.columns.forEach(c => cols.push({ table: t, name: c.name })));
+    active.forEach(t => {
+      const tbl = tables[t];
+      if (tbl && tbl.columns) {
+        tbl.columns.forEach(c => cols.push({ table: t, name: c.name }));
+      }
+    });
     return cols;
   }, [selectedTables, selectedJoins, tables]);
 
   const generatedQuery = useMemo(() => {
     const hasSelections = Object.keys(selectedTables).length > 0 || Object.keys(selectedJoins).length > 0;
     if (!hasSelections) return "";
-    
     const selectedFields: string[] = [];
     for (const tableName in selectedTables) {
       const selection = selectedTables[tableName];
       if (selection.isStar) selectedFields.push(`[${tableName}].*`);
       else selection.columns.forEach(col => selectedFields.push(`[${tableName}].[${col}]`));
     }
-
     const joins = Object.values(selectedJoins) as JoinInfo[];
     let query = `SELECT\n    ${selectedFields.length > 0 ? selectedFields.join(',\n    ') : '*'}\n`;
     const firstTable = Object.keys(selectedTables)[0] || joins[0]?.from || 'Faults';
-    
     if (firstTable) {
       query += `FROM [${firstTable}]`;
       joins.forEach(j => query += `\n    INNER JOIN [${j.to}] ON ${j.condition}`);
     }
-
     let whereClause = `[Faults].[fdeleted] = 0`;
     if (selectedRequestType !== 'All') {
       const ids = requestTypeMap[selectedRequestType];
       if (ids?.length > 0) whereClause += `\n    AND [Faults].[RequestTypeNew] IN (${ids.join(', ')})`;
     }
     whereConditions.forEach(c => whereClause += `\n    ${c.operatorType} [${c.table}].[${c.column}] ${c.operator} '${c.value}'`);
-    
     query += `\nWHERE ${whereClause}`;
     return query;
   }, [selectedTables, selectedJoins, whereConditions, selectedRequestType]);
 
   const groupedPossibleJoins = useMemo(() => {
-    const activeTables = new Set([...Object.keys(selectedTables), ...(Object.values(selectedJoins) as JoinInfo[]).flatMap(j => [j.from, j.to])]);
+    const activeTables = new Set<string>();
+    Object.keys(selectedTables).forEach(t => activeTables.add(t));
+    (Object.values(selectedJoins) as JoinInfo[]).forEach(j => {
+      activeTables.add(j.from);
+      activeTables.add(j.to);
+    });
     if (activeTables.size === 0) activeTables.add('Faults');
     const grouped: Record<string, JoinInfo[]> = {};
     const searchLower = joinSearch.toLowerCase();
@@ -235,7 +258,7 @@ export const SqlGeneratorView: React.FC = () => {
 
   const toggleField = (tableName: string, colName: string) => setSelectedTables(prev => {
     const current = prev[tableName] || { columns: [], isStar: false };
-    const nextCols = current.columns.includes(colName) ? current.columns.filter(c => c !== colName) : [...current.columns, colName];
+    const nextCols = current.columns.includes(colName) ? current.columns.filter(c => colName !== c) : [...current.columns, colName];
     const next = { ...prev };
     if (nextCols.length === 0) delete next[tableName]; else next[tableName] = { columns: nextCols, isStar: false };
     return next;
@@ -259,28 +282,40 @@ export const SqlGeneratorView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 bg-[#264653] p-4 lg:p-6 font-sans flex flex-col min-h-0 h-full overflow-hidden">
+    <div className="flex-1 p-4 lg:p-6 font-sans flex flex-col min-h-0 h-full overflow-hidden transition-colors duration-500" style={{ backgroundColor: bgColor, color: textColor }}>
       <div className="max-w-[1800px] mx-auto w-full flex-1 flex flex-col min-h-0 h-full overflow-hidden">
-        <h1 className="text-[#00ff87] font-black text-center text-xl mb-4 uppercase tracking-widest shrink-0">Halo Navigator SQL Generator</h1>
+        <div className="flex flex-col items-center mb-6 shrink-0">
+          <h1 className="font-black text-xl mb-3 uppercase tracking-widest" style={{ color: accentColor }}>Halo Navigator SQL Generator</h1>
+          <a 
+            href="https://dbdiagram.io/d/Halo-Extended-Schema-67aec241263d6cf9a02115bf" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="flex items-center gap-2 px-6 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest shadow-xl transition-all hover:scale-105 active:scale-95 border border-white/5"
+            style={{ backgroundColor: accentColor, color: isDarkMode ? '#1a2c33' : '#fff' }}
+          >
+            <FileJsonIcon className="w-4 h-4" /> View Full Schema Diagram
+          </a>
+        </div>
         
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-0 h-full items-stretch overflow-hidden">
           {/* Column 1: Schema Explorer */}
-          <div className="bg-[#1a202c] p-4 rounded-2xl border border-[#2d3748] shadow-2xl flex flex-col min-h-0 overflow-hidden">
+          <div className="p-4 rounded-2xl shadow-2xl flex flex-col min-h-0 overflow-hidden border" style={{ backgroundColor: panelBg, borderColor: borderColor }}>
             <h2 className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-3 shrink-0">Schema Explorer</h2>
-            <input type="text" placeholder="Search tables..." value={tableSearch} onChange={(e) => setTableSearch(e.target.value)} className="w-full bg-[#0a0c10] border border-[#2d3748] text-white p-2 rounded-lg text-[10px] mb-3 focus:outline-none focus:border-[#00ff87] shrink-0" />
+            <input type="text" placeholder="Search tables..." value={tableSearch} onChange={(e) => setTableSearch(e.target.value)} className="w-full border p-2 rounded-lg text-[10px] mb-3 focus:outline-none focus:border-opacity-100 shrink-0" style={{ backgroundColor: inputBg, borderColor: borderColor, color: textColor }} />
             <div className="flex-1 overflow-y-auto pr-1 space-y-2 min-h-0 custom-scrollbar">
               {filteredTableNames.map(tableName => (
-                <div key={tableName} className="bg-black/20 border border-[#2d3748] rounded-xl overflow-hidden shrink-0">
+                <div key={tableName} className="rounded-xl overflow-hidden shrink-0 border" style={{ backgroundColor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.03)', borderColor: borderColor }}>
                   <div className="flex items-center justify-between p-2 cursor-pointer hover:bg-white/5" onClick={() => toggleTable(tableName)}>
                     <span className="text-[10px] font-black tracking-tight">{tableName}</span>
-                    <button onClick={(e) => { e.stopPropagation(); selectAllFields(tableName); }} className="text-[#00ff87] text-[7px] font-black uppercase hover:opacity-70 px-1">Select All</button>
+                    <button onClick={(e) => { e.stopPropagation(); selectAllFields(tableName); }} className="text-[7px] font-black uppercase hover:opacity-70 px-1" style={{ color: accentColor }}>Select All</button>
                   </div>
                   {expandedTables.has(tableName) && (
-                    <div className="px-4 py-2 border-t border-[#2d3748] bg-black/10 flex flex-col gap-1">
-                      {tables[tableName].columns.map(col => (
+                    <div className="px-4 py-2 border-t bg-black/10 flex flex-col gap-1" style={{ borderColor: borderColor }}>
+                      {/* Added safety access to columns and explicitly typed map callback */}
+                      {(tables[tableName]?.columns || []).map((col: Column) => (
                         <label key={col.name} className="flex items-center gap-2 cursor-pointer group">
-                          <input type="checkbox" checked={selectedTables[tableName]?.columns.includes(col.name) || false} onChange={() => toggleField(tableName, col.name)} className="w-3 h-3 accent-[#00ff87]" />
-                          <span className="text-[9px] text-gray-400 group-hover:text-white">{col.name}</span>
+                          <input type="checkbox" checked={selectedTables[tableName]?.columns.includes(col.name) || false} onChange={() => toggleField(tableName, col.name)} className="w-3 h-3" style={{ accentColor: accentColor }} />
+                          <span className="text-[9px] opacity-60 group-hover:opacity-100">{col.name}</span>
                         </label>
                       ))}
                     </div>
@@ -292,41 +327,42 @@ export const SqlGeneratorView: React.FC = () => {
 
           {/* Column 2: Filters */}
           <div className="flex flex-col gap-4 min-h-0 h-full overflow-hidden">
-            <div className="bg-[#1a202c] p-4 rounded-2xl border border-[#2d3748] shadow-2xl shrink-0">
+            <div className="p-4 rounded-2xl shadow-2xl shrink-0 border" style={{ backgroundColor: panelBg, borderColor: borderColor }}>
               <h2 className="text-[9px] font-black uppercase tracking-widest opacity-80 mb-2">Request Filter</h2>
-              <select value={selectedRequestType} onChange={(e) => setSelectedRequestType(e.target.value)} className="w-full bg-[#0a0c10] border border-[#2d3748] text-white p-2 rounded-lg text-[10px] focus:outline-none focus:border-[#00ff87]">
+              <select value={selectedRequestType} onChange={(e) => setSelectedRequestType(e.target.value)} className="w-full border p-2 rounded-lg text-[10px] focus:outline-none" style={{ backgroundColor: inputBg, borderColor: borderColor, color: textColor }}>
                 {Object.keys(requestTypeMap).map(type => <option key={type} value={type}>{type}</option>)}
               </select>
             </div>
-            <div className="bg-[#1a202c] p-4 rounded-2xl border border-[#2d3748] shadow-2xl flex flex-col min-h-0 flex-1 overflow-hidden">
+            <div className="p-4 rounded-2xl shadow-2xl flex flex-col min-h-0 flex-1 overflow-hidden border" style={{ backgroundColor: panelBg, borderColor: borderColor }}>
               <h2 className="text-[9px] font-black uppercase tracking-widest opacity-80 mb-2">WHERE Conditions</h2>
               <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 mb-2 min-h-0 custom-scrollbar">
                 {whereConditions.map((c, i) => (
-                  <div key={c.id} className="flex flex-wrap gap-1 items-center bg-black/20 p-1.5 rounded-xl border border-white/5">
-                    <select value={`${c.table}.${c.column}`} onChange={(e) => { const [t, col] = e.target.value.split('.'); setWhereConditions(whereConditions.map(wc => wc.id === c.id ? { ...wc, table: t, column: col } : wc)); }} className="flex-1 bg-[#0a0c10] border border-[#2d3748] text-[8px] p-1 rounded focus:outline-none transition-all">{allAvailableColumns.map(col => <option key={`${col.table}.${col.name}`} value={`${col.table}.${col.name}`}>[{col.table}].[{col.name}]</option>)}</select>
-                    <input type="text" value={c.value} onChange={(e) => setWhereConditions(whereConditions.map(wc => wc.id === c.id ? { ...wc, value: e.target.value } : wc))} placeholder="Value..." className="flex-1 bg-[#0a0c10] border border-[#2d3748] text-[8px] p-1 rounded focus:outline-none transition-all" />
+                  <div key={c.id} className="flex flex-wrap gap-1 items-center p-1.5 rounded-xl border border-white/5" style={{ backgroundColor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.03)' }}>
+                    <select value={`${c.table}.${c.column}`} onChange={(e) => { const [t, col] = e.target.value.split('.'); setWhereConditions(whereConditions.map(wc => wc.id === c.id ? { ...wc, table: t, column: col } : wc)); }} className="flex-1 border text-[8px] p-1 rounded focus:outline-none transition-all" style={{ backgroundColor: inputBg, borderColor: borderColor, color: textColor }}>{allAvailableColumns.map(col => <option key={`${col.table}.${col.name}`} value={`${col.table}.${col.name}`}>[{col.table}].[{col.name}]</option>)}</select>
+                    <input type="text" value={c.value} onChange={(e) => setWhereConditions(whereConditions.map(wc => wc.id === c.id ? { ...wc, value: e.target.value } : wc))} placeholder="Value..." className="flex-1 border text-[8px] p-1 rounded focus:outline-none transition-all" style={{ backgroundColor: inputBg, borderColor: borderColor, color: textColor }} />
                     <button onClick={() => setWhereConditions(whereConditions.filter(wc => wc.id !== c.id))} className="text-red-500 font-black px-1 text-[10px] hover:opacity-70 transition-opacity">✕</button>
                   </div>
                 ))}
               </div>
-              <button onClick={() => setWhereConditions([...whereConditions, { id: Math.random().toString(), table: 'Faults', column: 'Faultid', operator: '=', value: '', operatorType: 'AND' }])} className="w-full py-1.5 bg-[#00ff87] text-[#1a2c33] font-black rounded-full text-[8px] uppercase shadow-lg flex-shrink-0 active:scale-95 transition-transform">Add Condition</button>
+              <button onClick={() => setWhereConditions([...whereConditions, { id: Math.random().toString(), table: 'Faults', column: 'Faultid', operator: '=', value: '', operatorType: 'AND' }])} className="w-full py-1.5 font-black rounded-full text-[8px] uppercase shadow-lg flex-shrink-0 active:scale-95 transition-transform" style={{ backgroundColor: accentColor, color: isDarkMode ? '#1a2c33' : '#fff' }}>Add Condition</button>
             </div>
           </div>
 
           {/* Column 3: Dedicated Joins Explorer */}
-          <div className="bg-[#1a202c] p-4 rounded-2xl border border-[#2d3748] shadow-2xl flex flex-col min-h-0 h-full overflow-hidden">
+          <div className="p-4 rounded-2xl shadow-2xl flex flex-col min-h-0 h-full overflow-hidden border" style={{ backgroundColor: panelBg, borderColor: borderColor }}>
             <h2 className="text-[9px] font-black uppercase tracking-widest opacity-80 mb-2">Joins Explorer</h2>
-            <input type="text" placeholder="Search joins..." value={joinSearch} onChange={(e) => setJoinSearch(e.target.value)} className="w-full bg-[#0a0c10] border border-[#2d3748] text-white p-2 rounded-lg text-[9px] mb-3 focus:outline-none focus:border-[#00ff87] shrink-0" />
+            <input type="text" placeholder="Search joins..." value={joinSearch} onChange={(e) => setJoinSearch(e.target.value)} className="w-full border p-2 rounded-lg text-[9px] mb-3 focus:outline-none shrink-0" style={{ backgroundColor: inputBg, borderColor: borderColor, color: textColor }} />
             <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar min-h-0">
-              {Object.entries(groupedPossibleJoins).map(([targetTable, joins]) => (
+              {/* Added explicit cast to Object.entries to resolve 'unknown' map error */}
+              {(Object.entries(groupedPossibleJoins) as [string, JoinInfo[]][]).map(([targetTable, joins]) => (
                 <div key={targetTable} className="space-y-1.5">
-                  <h4 className="text-[8px] font-black uppercase text-white/30 border-b border-white/5 pb-1">To {targetTable}:</h4>
+                  <h4 className="text-[8px] font-black uppercase opacity-30 border-b pb-1" style={{ borderColor: borderColor }}>To {targetTable}:</h4>
                   {joins.map((join, idx) => (
-                    <div key={idx} className="flex gap-3 items-start p-2 bg-black/20 rounded-xl border border-white/5 hover:border-[#00ff87]/30 transition-all group">
-                      <input type="checkbox" checked={selectedJoins[`${join.from}-${join.to}`] !== undefined} onChange={() => toggleJoin(join)} className="w-4 h-4 accent-[#00ff87] mt-0.5 shrink-0 cursor-pointer" />
+                    <div key={idx} className="flex gap-3 items-start p-2 rounded-xl border hover:border-opacity-100 transition-all group" style={{ backgroundColor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.03)', borderColor: borderColor }}>
+                      <input type="checkbox" checked={selectedJoins[`${join.from}-${join.to}`] !== undefined} onChange={() => toggleJoin(join)} className="w-4 h-4 mt-0.5 shrink-0 cursor-pointer" style={{ accentColor: accentColor }} />
                       <div className="flex-1 min-w-0">
-                        <div className="text-[10px] font-black text-[#00ff87]">{join.from} → {join.to}</div>
-                        <div className="text-[9px] text-gray-500 font-mono truncate opacity-60 group-hover:opacity-100">{join.condition}</div>
+                        <div className="text-[10px] font-black" style={{ color: accentColor }}>{join.from} → {join.to}</div>
+                        <div className="text-[9px] font-mono truncate opacity-60 group-hover:opacity-100">{join.condition}</div>
                       </div>
                     </div>
                   ))}
@@ -336,14 +372,14 @@ export const SqlGeneratorView: React.FC = () => {
           </div>
 
           {/* Column 4: Final Output */}
-          <div className="bg-[#1a202c] p-4 rounded-2xl border border-[#2d3748] shadow-2xl flex flex-col min-h-0 h-full overflow-hidden">
+          <div className="p-4 rounded-2xl shadow-2xl flex flex-col min-h-0 h-full overflow-hidden border" style={{ backgroundColor: panelBg, borderColor: borderColor }}>
               <h2 className="text-[9px] font-black uppercase tracking-widest opacity-80 mb-2">Final Query</h2>
-              <div className="flex-1 bg-[#0a0c10] border border-[#2d3748] rounded-xl overflow-hidden mb-3 min-h-0">
-                <textarea value={generatedQuery} readOnly placeholder="Select fields or joins..." className="w-full h-full bg-transparent p-2.5 font-mono text-[9px] text-[#cbd5e0] resize-none outline-none" />
+              <div className="flex-1 border rounded-xl overflow-hidden mb-3 min-h-0" style={{ backgroundColor: inputBg, borderColor: borderColor }}>
+                <textarea value={generatedQuery} readOnly placeholder="Select fields or joins..." className="w-full h-full bg-transparent p-2.5 font-mono text-[9px] resize-none outline-none" style={{ color: textColor }} />
               </div>
               <div className="flex gap-2 shrink-0">
-                <button onClick={copyToClipboard} className={`flex-1 py-2 ${copied ? 'bg-indigo-500 text-white' : 'bg-[#00ff87] text-[#1a2c33]'} font-black rounded-full text-[8px] uppercase tracking-widest shadow-lg transition-all active:scale-95`}>
-                  {copied ? 'SQL Copied!' : 'Copy SQL'}
+                <button onClick={copyToClipboard} className={`flex-1 py-2 font-black rounded-full text-[8px] uppercase tracking-widest shadow-lg transition-all active:scale-95`} style={{ backgroundColor: copied ? '#818cf8' : accentColor, color: isDarkMode ? '#1a2c33' : '#fff' }}>
+                  {copied ? 'SQL COPIED!' : 'Copy SQL'}
                 </button>
                 <button onClick={() => { setSelectedTables({}); setSelectedJoins({}); setWhereConditions([]); }} className="px-4 py-2 bg-slate-700 text-white font-black rounded-full text-[8px] uppercase tracking-widest shadow-lg hover:bg-slate-600 transition-all active:scale-95">✕</button>
               </div>
@@ -352,9 +388,9 @@ export const SqlGeneratorView: React.FC = () => {
       </div>
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #2d3748; border-radius: 10px; border: 1px solid rgba(0,0,0,0.2); }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #00ff87; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.02); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: ${borderColor}; border-radius: 10px; border: 1px solid rgba(0,0,0,0.2); }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: ${accentColor}; }
       `}</style>
     </div>
   );

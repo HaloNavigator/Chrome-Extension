@@ -1,260 +1,253 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { NavigatorRule, CommandMapping } from '../App';
-import { GlobeIcon, ShieldCheckIcon, LockIcon, CommandIcon } from './Icons';
+import React from 'react';
+import { NavigatorRule, CommandMapping, ThemeConfig } from '../App';
 
 interface SimulatedPageProps {
   url: string;
   matchedRule: NavigatorRule | null;
-  isDarkMode: boolean;
+  themeConfig: ThemeConfig;
   commands?: CommandMapping[];
   onNavigate?: (url: string) => void;
   onOpenNewTab?: (url: string) => void;
+  formData: Record<string, string>;
+  onInputChange: (field: string, value: string) => void;
 }
 
 export const SimulatedPage: React.FC<SimulatedPageProps> = ({ 
-  url, matchedRule, isDarkMode, commands = [], onNavigate, onOpenNewTab 
+  url, matchedRule, themeConfig, formData, onInputChange, onOpenNewTab 
 }) => {
-  const [showPalette, setShowPalette] = useState(false);
-  const [paletteInput, setPaletteInput] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  const isDarkMode = themeConfig?.mode === 'dark';
+  const accent = themeConfig.primaryColor;
+  const isGhostingActive = themeConfig.mandatoryGhosting !== false;
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Trigger palette on '#' key (Shift + 3) if not already typing in a field
-      if (e.key === '#' && !showPalette && matchedRule) {
-        e.preventDefault();
-        setShowPalette(true);
-        setPaletteInput('');
-      } else if (e.key === 'Escape' && showPalette) {
-        setShowPalette(false);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showPalette, matchedRule]);
-
-  useEffect(() => {
-    if (showPalette && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [showPalette]);
-
-  const getTargetUrl = (input: string): string | null => {
-    const cleanInput = input.trim().toLowerCase();
-    const cmd = commands.find(c => c.code === cleanInput);
+  const FieldRevealBadge = ({ id, isCustom = false }: { id: string, isCustom?: boolean }) => {
+    if (!themeConfig.fieldIdReveal || !isCustom) return null;
     
-    if (cmd) {
-      // 1. Support Absolute URLs (e.g. jump to prod)
-      if (cmd.path.toLowerCase().startsWith('http://') || cmd.path.toLowerCase().startsWith('https://')) {
-        return cmd.path;
-      }
-
-      // 2. Support Relative Module Redirects
-      if (matchedRule) {
-        const lowerUrl = url.toLowerCase();
-        const lowerPattern = matchedRule.pattern.toLowerCase();
-        const patternIndex = lowerUrl.indexOf(lowerPattern);
-        
-        let envBase = url.split('/')[0];
-        if (patternIndex !== -1) {
-          envBase = url.substring(0, patternIndex + matchedRule.pattern.length);
-        }
-        
-        const cleanPath = cmd.path.startsWith('/') ? cmd.path : `/${cmd.path}`;
-        const cleanBase = envBase.endsWith('/') ? envBase.slice(0, -1) : envBase;
-        return `${cleanBase}${cleanPath}`;
-      }
-    }
-    return null;
-  };
-
-  const handlePaletteSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const target = getTargetUrl(paletteInput);
-    if (target && onNavigate) {
-      onNavigate(target);
-    }
-    setShowPalette(false);
-  };
-
-  const handleInputKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Tab') {
-      const target = getTargetUrl(paletteInput);
-      if (target) {
-        e.preventDefault();
-        if (onOpenNewTab) onOpenNewTab(target);
-        setShowPalette(false);
-      }
-    }
-  };
-
-  const getContainerStyle = (): React.CSSProperties => {
-    if (!matchedRule) return {};
-    const strength = matchedRule.strength ?? 5;
+    const firstThree = id.substring(0, 3);
+    const displayId = `CF_${firstThree}`;
     
-    // Intensity of 0 effectively hides the effect
-    if (strength === 0) return {};
-
-    switch (matchedRule.styleType) {
-      case 'full':
-        const opacity = Math.min(Math.max(strength * 7, 10), 70);
-        return { 
-          backgroundColor: `${matchedRule.color}${opacity.toString(16).padStart(2, '0')}`, 
-          boxShadow: `inset 0 0 ${strength * 40}px ${matchedRule.color}22`,
-          borderColor: `${matchedRule.color}66`,
-          borderWidth: '1px'
-        };
-      case 'glow':
-        return { 
-          boxShadow: `inset 0 0 ${strength * 20}px ${matchedRule.color}88, inset 0 0 ${strength * 8}px ${matchedRule.color}aa, 0 0 ${strength * 6}px ${matchedRule.color}33`,
-          borderColor: matchedRule.color,
-          borderWidth: strength > 7 ? '3px' : '2px'
-        };
-      case 'border':
-        const borderWidth = Math.max(4, strength * 4);
-        return { border: `${borderWidth}px solid ${matchedRule.color}`, borderTop: '0' };
-      case 'top-bar':
-        const barHeight = Math.max(4, strength * 3);
-        return { borderTop: `${barHeight}px solid ${matchedRule.color}` };
-      default:
-        return {}; 
-    }
+    return (
+      <span 
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenNewTab?.(`/config/custom/fields?id=${firstThree}`);
+        }}
+        className="inline-flex items-center ml-2 px-2 py-0.5 rounded-[6px] text-[10px] font-black uppercase tracking-tight cursor-pointer transition-all hover:scale-110 active:scale-95"
+        style={{ 
+          backgroundColor: `${accent}15`, 
+          color: accent, 
+          border: `1px solid ${accent}40` 
+        }}
+        title={`Configure Custom Field ${firstThree}`}
+      >
+        {displayId}
+      </span>
+    );
   };
 
-  const getLabelPositionStyle = (): React.CSSProperties => {
-    if (!matchedRule) return {};
-    const pos = matchedRule.labelPosition || 'right';
-    switch (pos) {
-      case 'left': return { left: '40px', right: 'auto' };
-      case 'center': return { left: '50%', right: 'auto', transform: 'translateX(-50%)' };
-      default: return { right: '40px', left: 'auto' };
-    }
+  const InputField = ({ 
+    label, 
+    value, 
+    fieldId, 
+    isMandatory = false, 
+    isCustom = false, 
+    type = 'dropdown',
+    placeholder = 'Select a value...'
+  }: { 
+    label: string, 
+    value: string, 
+    fieldId: string, 
+    isMandatory?: boolean, 
+    isCustom?: boolean,
+    type?: 'dropdown' | 'richtext' | 'datetime' | 'text',
+    placeholder?: string
+  }) => {
+    // Precise empty check
+    const cleanValue = (value || '').trim();
+    const isActuallyEmpty = !cleanValue || 
+                           cleanValue === '' || 
+                           cleanValue === 'Not set' || 
+                           cleanValue.toLowerCase() === (placeholder || '').toLowerCase() ||
+                           (type === 'dropdown' && cleanValue.toLowerCase().startsWith('select a'));
+    
+    const showGhost = isGhostingActive && isMandatory && isActuallyEmpty;
+
+    const baseClasses = `p-3 rounded-xl border transition-all text-[11px] group relative ${
+      isDarkMode ? 'bg-black/20 border-white/10 text-white' : 'bg-white border-slate-200'
+    } ${showGhost ? 'halo-mandatory-ghost' : ''}`;
+
+    return (
+      <div className="space-y-1.5 w-full">
+        <label className="text-[10px] font-semibold opacity-70 flex items-center tracking-tight">
+          {label} {isMandatory && <span className="text-red-500 ml-0.5 font-bold">*</span>}
+          <FieldRevealBadge id={fieldId} isCustom={isCustom} />
+        </label>
+        
+        {type === 'text' && (
+          <div className={`${baseClasses} min-h-[38px] flex items-center`}>
+            <span className={isActuallyEmpty ? 'opacity-30' : 'opacity-90 font-medium'}>
+              {value || placeholder}
+            </span>
+          </div>
+        )}
+
+        {type === 'dropdown' && (
+          <div className={`${baseClasses} min-h-[38px] flex items-center justify-between`}>
+            <span className={isActuallyEmpty ? 'opacity-30' : 'opacity-90 font-medium'}>
+              {value || placeholder}
+            </span>
+            <div className="flex items-center gap-2 opacity-20">
+               {value && <span className="text-[10px]">✕</span>}
+               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+            </div>
+          </div>
+        )}
+
+        {type === 'richtext' && (
+          <div className={`${baseClasses} min-h-[140px] flex flex-col pt-2 shadow-sm`}>
+            <div className="flex gap-4 border-b border-inherit pb-2 mb-2 opacity-20">
+               {['B', 'I', 'U', '•', '1.', '🔗', '🖼️', '📊', '🙂', '+', '−', 'A', '<>'].map((tool, i) => <span key={i} className="text-[9px] font-black">{tool}</span>)}
+            </div>
+            <div className="flex-1">
+                <span className={isActuallyEmpty ? 'opacity-30 italic' : 'opacity-80 whitespace-pre-line'}>
+                {value || 'Enter details here...'}
+                </span>
+            </div>
+          </div>
+        )}
+
+        {type === 'datetime' && (
+          <div className="flex gap-2">
+            <div className={`${baseClasses} flex-1 flex items-center gap-2 py-2`}>
+              <div className="w-3.5 h-3.5 rounded border border-slate-400/20" />
+              <span className="opacity-30">--/--/----</span>
+            </div>
+            <div className={`${baseClasses} w-32 flex items-center gap-2 py-2`}>
+              <span className="opacity-30">--:--</span>
+              <svg className="w-3.5 h-3.5 ml-auto opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
-    <div 
-      className={`flex-1 p-8 md:p-12 transition-all duration-700 flex flex-col relative overflow-hidden ${
-        isDarkMode ? (matchedRule?.styleType === 'full' && (matchedRule.strength ?? 5) > 0 ? '' : 'bg-[#0f172a]') : (matchedRule?.styleType === 'full' && (matchedRule.strength ?? 5) > 0 ? '' : 'bg-white')
-      }`}
-      style={getContainerStyle()}
-    >
-      {/* Palette Overlay */}
-      {showPalette && (
-        <div className="absolute inset-0 z-[100] flex items-start justify-center pt-24 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
-          <form 
-            onSubmit={handlePaletteSubmit}
-            className="w-full max-w-lg bg-[#264653] border-2 border-[#00ff87]/30 shadow-2xl rounded-2xl p-1 animate-in slide-in-from-top-4 duration-300"
-          >
-            <div className="flex items-center gap-3 px-4 py-3">
-              <span className="text-2xl font-black text-[#00ff87] opacity-60">#</span>
-              <input 
-                ref={inputRef}
-                type="text" 
-                placeholder="Jump to environment or module..."
-                value={paletteInput}
-                onChange={(e) => setPaletteInput(e.target.value)}
-                onKeyDown={handleInputKeyDown}
-                className="flex-1 bg-transparent border-none outline-none text-white text-lg font-bold placeholder:text-white/20"
-              />
-              <div className="flex items-center gap-2">
-                <div className="px-2 py-1 rounded-md bg-white/5 border border-white/10 text-[9px] font-black text-white/40 uppercase tracking-widest flex flex-col items-center">
-                  <span>ENTER</span>
-                  <span className="text-[7px] opacity-40">GO</span>
-                </div>
-                <div className="px-2 py-1 rounded-md bg-white/5 border border-white/10 text-[9px] font-black text-white/40 uppercase tracking-widest flex flex-col items-center">
-                  <span>TAB</span>
-                  <span className="text-[7px] opacity-40">NEW TAB</span>
-                </div>
-              </div>
-            </div>
-            <div className="border-t border-white/5 p-3 flex flex-wrap gap-2 max-h-48 overflow-y-auto no-scrollbar">
-              {commands.map(c => {
-                const isAbsolute = c.path.includes('://');
-                return (
-                  <div key={c.code} className={`px-2 py-1 rounded border text-[9px] font-black uppercase flex items-center gap-1.5 ${
-                    isAbsolute ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' : 'bg-black/20 border-white/5 text-[#00ff87]'
-                  }`}>
-                    #{c.code} 
-                    <span className={`font-normal lowercase max-w-[120px] truncate ${isAbsolute ? 'text-indigo-300/40' : 'text-white/20'}`}>
-                      {c.path}
-                    </span>
-                    {isAbsolute && <GlobeIcon className="w-2.5 h-2.5 opacity-40" />}
-                  </div>
-                );
-              })}
-            </div>
-          </form>
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/30 text-[10px] font-black uppercase tracking-[0.2em]">
-            Press ESC to cancel
-          </div>
-        </div>
-      )}
-
-      {matchedRule && (matchedRule.strength ?? 5) > 0 && (
-        <div className="absolute top-0 left-0 right-0 h-2 z-30 transition-all duration-500 shadow-lg" style={{ backgroundColor: matchedRule.color }} />
-      )}
-
-      <div className={`absolute top-0 right-0 p-8 transition-opacity duration-500 pointer-events-none ${isDarkMode ? 'opacity-[0.05] text-[#00ff87]' : 'opacity-[0.03] text-[#264653]'}`}>
-        <GlobeIcon className="w-96 h-96" />
-      </div>
-
-      <div className="z-10 w-full">
-        <div className="flex items-center justify-between mb-8">
-           <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl bg-[#264653]">
-                 <img src="images/HN48.png" className="w-8 h-8" alt="H" />
-              </div>
-              <div>
-                <h2 className={`text-2xl font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>HaloITSM</h2>
-                <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Portal Simulation</p>
-              </div>
-           </div>
-           
-           {matchedRule && !matchedRule.hideLabel && (
-             <div 
-               className="absolute top-0 px-5 py-2 rounded-b-xl border-x border-b text-[11px] font-black uppercase tracking-widest flex items-center gap-3 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-700 z-50"
-               style={{ 
-                 ...getLabelPositionStyle(),
-                 borderColor: `${matchedRule.color}66`, 
-                 backgroundColor: matchedRule.color,
-                 color: '#fff'
-               }}
-             >
-               <div className="relative flex h-2.5 w-2.5">
-                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-white"></span>
-                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
+    <div className={`flex-1 p-0 transition-all duration-500 flex flex-col relative overflow-hidden ${isDarkMode ? 'bg-[#0f172a]' : 'bg-[#f4f7fa]'}`}>
+      
+      <div className="z-10 w-full shrink-0">
+          <div className="bg-[#f97316] text-white px-8 py-5 rounded-tr-[2rem] flex items-center justify-between shadow-lg">
+             <div className="flex items-center gap-3">
+                <span className="text-lg font-bold tracking-tight">Ticket details</span>
+             </div>
+             {matchedRule && !matchedRule.hideLabel && (
+               <div className="px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-white/20 backdrop-blur-md">
+                 {matchedRule.label || 'Connected'}
                </div>
-               ENV: {matchedRule.label || matchedRule.pattern}
-             </div>
-           )}
-        </div>
-
-        <div className="max-w-4xl space-y-8">
-          <div className={`border-2 rounded-[2.5rem] shadow-2xl p-10 space-y-8 ${isDarkMode ? 'bg-[#0f172a]/60 border-white/5' : 'bg-white border-slate-100'}`}>
-             <div className="flex items-center justify-between border-b-2 pb-6 border-white/5">
-                <h3 className={`font-black text-xl ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Dashboard View</h3>
-                <div className="flex gap-2 items-center">
-                  <span className="bg-[#00ff87]/10 text-[#00ff87] text-[9px] font-black px-2 py-1 rounded">HOTKEY: #</span>
-                </div>
-             </div>
-             <div className="space-y-8">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="flex items-center gap-6 group">
-                    <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center">
-                      <LockIcon className="w-5 h-5 text-slate-500" />
-                    </div>
-                    <div className="flex-1 space-y-3">
-                       <div className="h-4 rounded-full w-full bg-white/5"></div>
-                       <div className="h-3 rounded-full w-3/4 opacity-40 bg-white/10"></div>
-                    </div>
-                  </div>
-                ))}
-             </div>
+             )}
           </div>
-        </div>
       </div>
+
+      <div className="flex-1 p-8 overflow-y-auto no-scrollbar">
+          <div className="max-w-5xl mx-auto space-y-6 pb-32">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <InputField 
+                    label="Category" 
+                    value={formData['itil_ticket_type'] || "JML > Joiner"} 
+                    fieldId="category" 
+                    isMandatory={true} 
+                  />
+                  <InputField 
+                    label="Ticket Type" 
+                    value={formData['ticket_type'] || "Change Request"} 
+                    fieldId="ticket_type" 
+                    isMandatory={true} 
+                  />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <InputField 
+                    label="Change Type" 
+                    value={formData['change_type']} 
+                    fieldId="change_type" 
+                    isMandatory={true} 
+                    placeholder="Select a value..."
+                  />
+                  <InputField 
+                    label="Risk" 
+                    value={formData['risk']} 
+                    fieldId="risk" 
+                    isMandatory={true} 
+                    placeholder="Select a value..."
+                  />
+                  <InputField 
+                    label="Impact" 
+                    value={formData['impact']} 
+                    fieldId="impact" 
+                    isMandatory={true} 
+                    placeholder="Select a value..."
+                  />
+              </div>
+
+              <InputField 
+                label="Summary" 
+                value={formData['uat_summary']} 
+                fieldId="summary" 
+                isMandatory={true} 
+                type="text"
+                placeholder=""
+              />
+
+              <div className="space-y-6">
+                  <InputField 
+                    label="Details" 
+                    value={formData['details'] || `Team: $SECTION\nAssets: $ALLASSETS`}
+                    fieldId="details" 
+                    isMandatory={true} 
+                    type="richtext"
+                  />
+                  
+                  <InputField 
+                    label="Change Plan" 
+                    value={formData['change_plan']} 
+                    fieldId="customfield_169" 
+                    isMandatory={true} 
+                    isCustom={true}
+                    type="richtext"
+                  />
+
+                  <InputField 
+                    label="Test Plan" 
+                    value={formData['test_plan']} 
+                    fieldId="customfield_170" 
+                    isMandatory={true} 
+                    isCustom={true}
+                    type="richtext"
+                  />
+              </div>
+          </div>
+      </div>
+
+      <div className="absolute bottom-8 right-8 z-50">
+          <button className="bg-[#f97316] text-white px-10 py-3.5 rounded-full font-black uppercase text-xs tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all">
+            Submit
+          </button>
+      </div>
+
+      <style>{`
+        @keyframes haloMandatoryBreathSim {
+          0% { border-color: rgba(239, 68, 68, 0.2); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+          50% { border-color: rgba(239, 68, 68, 1); box-shadow: 0 0 12px 2px rgba(239, 68, 68, 0.4); }
+          100% { border-color: rgba(239, 68, 68, 0.2); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .halo-mandatory-ghost {
+          animation: haloMandatoryBreathSim 2.5s infinite ease-in-out !important;
+          border-width: 2px !important;
+          border-style: solid !important;
+          border-color: #ef4444 !important;
+          z-index: 5 !important;
+        }
+      `}</style>
     </div>
   );
 };

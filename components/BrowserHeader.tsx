@@ -12,7 +12,7 @@ import {
   SunIcon,
   GlobeIcon 
 } from './Icons';
-import { NavigatorRule, Tab } from '../App';
+import { NavigatorRule, Tab, ThemeConfig } from '../App';
 
 interface BrowserHeaderProps {
   tabs: Tab[];
@@ -26,6 +26,7 @@ interface BrowserHeaderProps {
   rules: NavigatorRule[];
   isDarkMode: boolean;
   toggleDarkMode: () => void;
+  themeConfig: ThemeConfig;
 }
 
 /**
@@ -58,29 +59,25 @@ function getFaviconUrl(url: string): string | null {
 }
 
 /**
- * A small sub-component to handle favicon loading and fallback state.
+ * A small sub-component to handle favicon loading.
+ * Badging functionality removed.
  */
 const TabFavicon: React.FC<{ 
   url: string; 
-  ruleColor?: string; 
+  matchedRule?: NavigatorRule;
   isActive: boolean;
   isDarkMode: boolean;
-}> = ({ url, ruleColor, isActive, isDarkMode }) => {
+  themeConfig: ThemeConfig;
+}> = ({ url, matchedRule, isActive, isDarkMode, themeConfig }) => {
   const faviconUrl = getFaviconUrl(url);
   const [hasError, setHasError] = React.useState(false);
 
-  // Default indicator logic
   const renderFallback = () => (
-    <div className="relative flex items-center justify-center">
-      <GlobeIcon className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${
-        ruleColor ? 'opacity-100' : 'opacity-40'
-      } ${isActive && !ruleColor ? (isDarkMode ? 'text-slate-100' : 'text-slate-900') : ''}`} 
-      style={ruleColor ? { color: ruleColor } : {}}
-      />
-      {ruleColor && (
-        <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-white border border-black/10 animate-pulse"></span>
-      )}
-    </div>
+    <GlobeIcon className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${
+      matchedRule ? 'opacity-100' : 'opacity-40'
+    } ${isActive && !matchedRule ? (isDarkMode ? 'text-slate-100' : 'text-slate-900') : ''}`} 
+    style={matchedRule ? { color: matchedRule.color } : {}}
+    />
   );
 
   if (!faviconUrl || hasError) {
@@ -108,7 +105,8 @@ export const BrowserHeader: React.FC<BrowserHeaderProps> = ({
   isExtensionOpen, 
   rules,
   isDarkMode,
-  toggleDarkMode
+  toggleDarkMode,
+  themeConfig
 }) => {
   const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
   const activeMatchedRule = rules.find(rule => activeTab.url.toLowerCase().includes(rule.pattern.toLowerCase())) || null;
@@ -125,6 +123,7 @@ export const BrowserHeader: React.FC<BrowserHeaderProps> = ({
           let tabStyle: React.CSSProperties = {};
 
           if (matchedRule) {
+            const strength = matchedRule.strength ?? 4; // Fix: Use nullish coalescing
             if (isActive) {
               switch (matchedRule.styleType) {
                 case 'full':
@@ -132,22 +131,22 @@ export const BrowserHeader: React.FC<BrowserHeaderProps> = ({
                   tabStyle = { 
                     backgroundColor: matchedRule.color,
                     borderColor: matchedRule.color,
-                    boxShadow: `0 -2px 10px ${matchedRule.color}40`
+                    opacity: strength > 0 ? 1 : 0, // Respect strength 0
+                    boxShadow: strength > 0 ? `0 -2px 10px ${matchedRule.color}40` : 'none'
                   };
                   break;
                 case 'border':
                   contrastClass = isDarkMode ? 'text-slate-100' : 'text-slate-900';
                   tabStyle = { 
                     backgroundColor: isDarkMode ? '#1e293b' : 'white',
-                    border: `2.5px solid ${matchedRule.color}`,
-                    borderColor: matchedRule.color
+                    border: strength > 0 ? `${strength}px solid ${matchedRule.color}` : 'none',
                   };
                   break;
                 case 'top-bar':
                   contrastClass = isDarkMode ? 'text-slate-100' : 'text-slate-900';
                   tabStyle = { 
                     backgroundColor: isDarkMode ? '#1e293b' : 'white',
-                    borderTop: `4px solid ${matchedRule.color}`,
+                    borderTop: strength > 0 ? `${strength}px solid ${matchedRule.color}` : 'none',
                     borderColor: isDarkMode ? '#334155' : '#e2e8f0',
                     borderTopColor: matchedRule.color
                   };
@@ -156,7 +155,7 @@ export const BrowserHeader: React.FC<BrowserHeaderProps> = ({
                   contrastClass = isDarkMode ? 'text-slate-100' : 'text-slate-900';
                   tabStyle = { 
                     backgroundColor: isDarkMode ? '#1e293b' : 'white',
-                    boxShadow: `inset 0 0 12px ${matchedRule.color}80`
+                    boxShadow: strength > 0 ? `inset 0 0 ${strength * 4}px ${matchedRule.color}80` : 'none'
                   };
                   break;
                 default:
@@ -165,8 +164,8 @@ export const BrowserHeader: React.FC<BrowserHeaderProps> = ({
             } else {
               contrastClass = isDarkMode ? 'text-slate-300' : 'text-slate-700';
               tabStyle = { 
-                backgroundColor: `${matchedRule.color}15`,
-                borderBottom: `3px solid ${matchedRule.color}`
+                backgroundColor: strength > 0 ? `${matchedRule.color}15` : 'transparent',
+                borderBottom: strength > 0 ? `3px solid ${matchedRule.color}` : 'none'
               };
             }
           } else if (isActive) {
@@ -187,9 +186,10 @@ export const BrowserHeader: React.FC<BrowserHeaderProps> = ({
             >
               <TabFavicon 
                 url={tab.url} 
-                ruleColor={matchedRule?.color} 
+                matchedRule={matchedRule || undefined}
                 isActive={isActive}
                 isDarkMode={isDarkMode}
+                themeConfig={themeConfig}
               />
               
               <span className="truncate flex-1">

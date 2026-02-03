@@ -1,5 +1,6 @@
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -19,92 +20,109 @@
       --cyan: #06b6d4;
       --emerald: #10b981;
     }
-    body { width: 480px; margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; }
-    
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --card-bg: rgba(15, 23, 42, 0.03);
+      --input-bg: #f1f5f9;
+      --text: #1e293b;
+      --text-muted: rgba(30, 41, 59, 0.5);
+      --border: rgba(15, 23, 42, 0.08);
+    }
+    body { width: 480px; margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; transition: background 0.3s, color 0.3s; }
     .header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; font-size: 14px; }
-    
-    .tabs { display: flex; border-bottom: 1px solid var(--border); width: 100%; }
-    .tab-btn { flex: 1; padding: 12px 5px; background: transparent; border: none; color: var(--text-muted); font-size: 9px; font-weight: 900; cursor: pointer; text-transform: uppercase; letter-spacing: 0.1em; transition: all 0.2s; white-space: nowrap; }
-    .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); background: rgba(255,255,255,0.02); }
-    
-    .view { display: none; padding: 16px; height: 500px; overflow-y: auto; box-sizing: border-box; }
+    .tabs { display: flex; border-bottom: 1px solid var(--border); width: 100%; overflow-x: auto; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab-btn { flex: 1; min-width: 80px; padding: 12px 5px; background: transparent; border: none; color: var(--text-muted); font-size: 9px; font-weight: 900; cursor: pointer; text-transform: uppercase; letter-spacing: 0.1em; transition: all 0.2s; white-space: nowrap; }
+    .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); background: rgba(127,127,127,0.05); }
+    .view { display: none; padding: 16px; height: 520px; overflow-y: auto; box-sizing: border-box; }
     .view.active { display: block; }
     .view::-webkit-scrollbar { width: 6px; }
     .view::-webkit-scrollbar-track { background: transparent; }
     .view::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
 
-    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 20px; padding: 18px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 20px; padding: 18px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
     .card-title { font-size: 10px; font-weight: 900; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; letter-spacing: 0.15em; opacity: 0.8; }
-
-    .help-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 12px; display: flex; gap: 14px; align-items: flex-start; }
-    .help-icon { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 900; font-size: 14px; }
-    .help-content { flex: 1; }
-    .help-title { font-size: 12px; font-weight: 900; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
-    .help-text { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
-
     .input-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
     .input-label { font-size: 8px; font-weight: 900; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-left: 4px; }
-    
     input, select { background: var(--input-bg); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 10px; width: 100%; box-sizing: border-box; font-size: 12px; outline: none; transition: border-color 0.2s; }
-    input:focus, select:focus { border-color: var(--accent); }
-    
+    input[type="range"] { height: 6px; -webkit-appearance: none; background: var(--border); border-radius: 5px; outline: none; cursor: pointer; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: var(--accent); border-radius: 50%; cursor: pointer; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    
-    .btn { width: 100%; padding: 14px; background: var(--accent); color: var(--bg); border: none; border-radius: 14px; font-weight: 900; text-transform: uppercase; cursor: pointer; transition: 0.2s; font-size: 11px; letter-spacing: 0.1em; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 10px 20px rgba(0,255,135,0.15); }
-    .btn:hover { filter: brightness(1.1); transform: scale(1.02); }
-    .btn:active { transform: scale(0.98); }
-    
-    .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--border); }
-    .range-wrap { flex: 1; display: flex; align-items: center; gap: 10px; }
-    .range-label { font-size: 8px; font-weight: 900; text-transform: uppercase; color: var(--text-muted); }
-    input[type="range"] { padding: 0; height: 4px; background: var(--border); accent-color: var(--accent); }
-
+    .btn { width: 100%; padding: 14px; background: var(--accent); color: #1a2c33; border: none; border-radius: 14px; font-weight: 900; text-transform: uppercase; cursor: pointer; transition: 0.2s; font-size: 11px; letter-spacing: 0.1em; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); text-decoration: none; }
+    .btn-secondary { background: rgba(127,127,127,0.1); color: var(--text); border: 1px solid var(--border); box-shadow: none; }
     .item-list { display: flex; flex-direction: column; gap: 10px; padding-bottom: 40px; }
-    .item-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 18px; padding: 14px; display: flex; align-items: center; gap: 14px; transition: 0.2s; border-left: 4px solid transparent; text-decoration: none; }
-    .item-card:hover { border-color: var(--accent); background: rgba(255,255,255,0.06); transform: translateX(4px); }
-    
-    .color-box { width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px; box-shadow: inset 0 0 10px rgba(0,0,0,0.2); }
+    .item-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 18px; padding: 12px; display: flex; align-items: center; gap: 12px; position: relative; transition: 0.2s; text-decoration: none; color: inherit; }
+    .item-card:hover { background: rgba(255,255,255,0.08); border-color: var(--accent); }
+    .item-card.editing-highlight { border-color: var(--accent); box-shadow: 0 0 15px var(--accent); background: rgba(0,255,135,0.05); }
+    .color-box { width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 900; box-shadow: inset 0 0 10px rgba(0,0,0,0.1); position: relative; font-size: 11px; }
+    .shortcut-label { min-width: 40px; height: 36px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 900; position: relative; font-size: 11px; color: var(--accent); background: transparent; }
     .item-info { flex: 1; min-width: 0; }
-    .item-header { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
-    .item-name { font-weight: 900; font-size: 13px; color: #fff; }
-    .item-meta { font-size: 10px; color: var(--text-muted); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
+    .item-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+    .item-name { font-weight: 900; font-size: 12px; }
+    .item-meta { font-size: 9px; color: var(--text-muted); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .delete-item { color: var(--red); font-size: 14px; cursor: pointer; background: none; border: none; padding: 4px; opacity: 0.6; transition: 0.2s; }
+    .delete-item:hover { opacity: 1; transform: scale(1.1); }
     
-    .badge { font-size: 7px; font-weight: 900; text-transform: uppercase; background: rgba(0,0,0,0.3); color: var(--accent); padding: 1px 6px; border-radius: 4px; letter-spacing: 0.05em; border: 1px solid rgba(0,255,135,0.1); }
-    .badge.red { color: var(--red); border-color: rgba(239, 68, 68, 0.1); }
-    .badge.blue { color: var(--indigo); border-color: rgba(129, 140, 248, 0.1); }
+    .switch { position: relative; display: inline-block; width: 40px; height: 22px; margin-top: 4px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border); transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: var(--accent); }
+    input:checked + .slider.slider-red { background-color: var(--red); }
+    input:checked + .slider:before { transform: translateX(18px); }
 
-    .actions { display: flex; gap: 4px; opacity: 0.4; transition: 0.2s; }
-    .item-card:hover .actions { opacity: 1; }
-    .act-btn { background: transparent; border: none; color: white; cursor: pointer; padding: 6px; border-radius: 8px; }
-    .act-btn:hover { background: rgba(255,255,255,0.1); color: var(--accent); }
-    .act-btn.del:hover { color: var(--red); }
+    /* Preset Grid Styles */
+    .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .preset-item { padding: 14px; border-radius: 14px; border: 1px solid var(--border); background: rgba(0,0,0,0.1); display: flex; align-items: center; gap: 10px; cursor: pointer; transition: 0.2s; }
+    .preset-item:hover { background: rgba(255,255,255,0.05); border-color: var(--accent); }
+    .preset-item.active { border-color: var(--accent); background: rgba(0,255,135,0.05); }
+    .preset-dot { width: 10px; height: 10px; border-radius: 50%; }
 
-    .footer { padding: 20px; border-top: 1px solid var(--border); background: linear-gradient(to top, var(--bg), transparent); }
-    
-    #rule-edit-actions, #cmd-edit-actions { display: none; gap: 10px; }
+    /* Redesigned Help Styles */
+    .help-section { margin-bottom: 24px; }
+    .help-title { font-size: 10px; font-weight: 900; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; letter-spacing: 0.1em; display: flex; align-items: center; gap: 8px; }
+    .help-text { font-size: 11px; opacity: 0.7; line-height: 1.6; margin: 0 0 12px 0; }
+    kbd { padding: 2px 6px; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.3); font-size: 9px; font-weight: 900; color: #fff; margin: 0 2px; display: inline-block; vertical-align: middle; }
+    .step { display: flex; gap: 12px; margin-bottom: 16px; }
+    .step-num { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #000; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; flex-shrink: 0; }
+    .kb-table { background: rgba(0,0,0,0.15); border-radius: 16px; padding: 16px; margin-bottom: 16px; border: 1px solid var(--border); }
+    .kb-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .kb-row:last-child { margin-bottom: 0; }
+    .kb-key { font-size: 10px; font-weight: 800; }
+    .kb-desc { font-size: 10px; opacity: 0.5; }
+    .uat-badge { font-size: 9px; font-weight: 900; padding: 2px 8px; border-radius: 6px; display: inline-block; margin-bottom: 4px; text-transform: uppercase; }
+
+    .mode-toggle { cursor: pointer; font-size: 32px; transition: transform 0.2s; line-height: 1; }
+    .mode-toggle:hover { transform: scale(1.15) rotate(5deg); }
+
+    @keyframes haloPulseRed { 
+      0%, 100% { border-color: rgba(239, 68, 68, 0.2); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+      50% { border-color: rgba(239, 68, 68, 1); box-shadow: 0 0 10px 2px rgba(239, 68, 68, 0.4); }
+    }
+    .halo-mandatory-ghost { animation: haloPulseRed 2.5s infinite ease-in-out !important; border: 2px solid #ef4444 !important; }
   </style>
 </head>
-<body>
+<body data-theme="dark">
   <div class="header">
     <div style="display:flex; align-items:center; gap:8px;">
       <img src="images/HN16.png" style="width:16px; height:16px;">
       HALO NAVIGATOR
     </div>
-    <button id="open-options" style="background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--text-muted); border-radius:8px; padding:6px 12px; cursor:pointer; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:0.1em;">Settings</button>
+    <button id="open-options" style="background:rgba(127,127,127,0.05); border:1px solid var(--border); color:var(--text-muted); border-radius:8px; padding:6px 12px; cursor:pointer; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:0.1em;">DASHBOARD</button>
   </div>
   
   <div class="tabs">
     <button class="tab-btn active" data-tab="rules-view">Rules</button>
     <button class="tab-btn" data-tab="shortcuts-view">Shortcuts</button>
-    <button class="tab-btn" data-tab="links-view">Links</button>
+    <button class="tab-btn" data-tab="theme-view">Theme</button>
     <button class="tab-btn" data-tab="tools-view">Tools</button>
+    <button class="tab-btn" data-tab="links-view">Links</button>
     <button class="tab-btn" data-tab="help-view">Help</button>
   </div>
 
   <div id="rules-view" class="view active">
     <div class="card">
-      <div class="card-title" id="rule-form-title">Environment Rules</div>
-      
+      <div class="card-title">Environment Rules</div>
       <div class="row">
         <div class="input-group">
           <span class="input-label">Label</span>
@@ -115,177 +133,211 @@
           <input type="text" id="rule-pattern" placeholder="e.g. tenant.haloitsm.com">
         </div>
       </div>
-
       <div class="row">
         <div class="input-group">
-          <span class="input-label">Visual Style</span>
+          <span class="input-label">Style</span>
           <select id="rule-style">
-            <option value="full">Full Background</option>
+            <option value="full">Full BG</option>
             <option value="border">Border</option>
             <option value="top-bar">Top Bar</option>
             <option value="glow">Glow</option>
           </select>
         </div>
         <div class="input-group">
-          <span class="input-label">Color</span>
-          <input type="color" id="rule-color" value="#00ff87" style="height: 38px; padding: 4px; cursor: pointer;">
+          <span class="input-label">Rule Colour</span>
+          <input type="color" id="rule-color" value="#00ff87" style="height:38px; padding:4px;">
         </div>
       </div>
-
-      <div class="setting-row">
-        <div class="range-wrap">
-          <span class="range-label">Intensity: <span id="strength-val" style="color:var(--accent)">5</span></span>
-          <input type="range" id="rule-strength" min="0" max="10" value="5">
+      <div id="rule-advanced-section">
+        <div class="input-group">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+             <span class="input-label">Style Width (Strength)</span>
+             <span id="strength-val" style="font-size:10px; font-weight:900; color:var(--accent);">0</span>
+          </div>
+          <input type="range" id="rule-strength" min="0" max="10" value="0">
+        </div>
+        <div class="row" style="margin-bottom:12px;">
+          <div class="input-group">
+            <span class="input-label">Hide Label</span>
+            <label class="switch">
+              <input type="checkbox" id="rule-hide-label">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="input-group">
+            <span class="input-label">Label Position</span>
+            <select id="rule-label-pos">
+              <option value="right">Right</option>
+              <option value="center">Centre</option>
+              <option value="left">Left</option>
+            </select>
+          </div>
         </div>
       </div>
-
-      <div class="setting-row">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <input type="checkbox" id="rule-hide-label" style="width:16px; height:16px;">
-          <label for="rule-hide-label" class="range-label" style="cursor:pointer;">Hide Label</label>
-        </div>
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span class="range-label">Pos:</span>
-          <select id="rule-label-position" style="width:70px; padding:4px; font-size:10px; font-weight:900;">
-            <option value="left">Left</option>
-            <option value="center">Center</option>
-            <option value="right" selected>Right</option>
-          </select>
-        </div>
-      </div>
-
-      <button class="btn" id="rule-create">Add Rule</button>
-      <div id="rule-edit-actions">
-        <button class="btn" style="background:rgba(255,255,255,0.1); color:white;" id="rule-cancel">Cancel</button>
-        <button class="btn" id="rule-update">Update</button>
+      <div class="btn-row" style="display:flex; gap:10px; margin-top:14px;">
+        <button class="btn" id="rule-create" style="flex:2.5;">Add Rule</button>
+        <button class="btn btn-secondary save-btn" style="flex:1;">Save</button>
       </div>
     </div>
-
     <div class="card-title">Active Rules</div>
     <div id="rules-list" class="item-list"></div>
   </div>
 
   <div id="shortcuts-view" class="view">
     <div class="card">
-      <div class="card-title" id="cmd-form-title">Shortcut Settings</div>
+      <div class="card-title">Shortcut Settings</div>
       <div class="row" style="grid-template-columns: 80px 1fr;">
         <div class="input-group">
           <span class="input-label">Code</span>
-          <div style="position:relative;">
-            <span style="position:absolute; left:10px; top:10px; color:var(--accent); font-weight:900;">#</span>
-            <input type="text" id="cmd-code" placeholder="AS" style="padding-left:24px;">
-          </div>
+          <div style="position:relative;"><span style="position:absolute; left:10px; top:10px; color:var(--accent); font-weight:900;">#</span><input type="text" id="cmd-code" placeholder="AS" style="padding-left:24px;"></div>
         </div>
-        <div class="input-group">
-          <span class="input-label">Path/URL</span>
-          <input type="text" id="cmd-path" placeholder="/assets">
-        </div>
+        <div class="input-group"><span class="input-label">Path</span><input type="text" id="cmd-path" placeholder="/assets"></div>
       </div>
-      <button class="btn" id="cmd-add" style="background:var(--accent); color:var(--bg);">Add Shortcut</button>
-      <div id="cmd-edit-actions">
-        <button class="btn" style="background:rgba(255,255,255,0.1); color:white;" id="cmd-cancel">Cancel</button>
-        <button class="btn" id="cmd-update" style="background:var(--accent); color:var(--bg);">Update</button>
+      <div class="btn-row" style="display:flex; gap:10px;">
+        <button class="btn" id="cmd-add" style="flex:2.5;">Add</button>
+        <button class="btn btn-secondary save-btn" style="flex:1;">Save</button>
       </div>
     </div>
-    <div class="card-title">Registered Shortcuts</div>
     <div id="commands-list" class="item-list"></div>
   </div>
 
-  <div id="links-view" class="view">
-    <div class="card-title">Halo Resources</div>
-    <div class="item-list">
-      <a href="https://support.haloservicedesk.com/portal/" target="_blank" class="item-card">
-        <div class="color-box" style="background:rgba(0,255,135,0.1); color:var(--accent);">S</div>
-        <div class="item-info"><div class="item-name">Halo Support</div><div class="item-meta">support.haloservicedesk.com</div></div>
-      </a>
-      <a href="https://community.haloitsm.com/" target="_blank" class="item-card">
-        <div class="color-box" style="background:rgba(0,255,135,0.1); color:var(--accent);">C</div>
-        <div class="item-info"><div class="item-name">Halo Community</div><div class="item-meta">community.haloitsm.com</div></div>
-      </a>
-      <a href="https://discord.com/channels/1050832376185495562" target="_blank" class="item-card">
-        <div class="color-box" style="background:rgba(0,255,135,0.1); color:var(--accent);">D</div>
-        <div class="item-info"><div class="item-name">Admin Hangout</div><div class="item-meta">discord.com/haloitsm</div></div>
-      </a>
-      <a href="https://usehalo.com/haloitsm/roadmap/" target="_blank" class="item-card">
-        <div class="color-box" style="background:rgba(245,158,11,0.1); color:var(--amber);">R</div>
-        <div class="item-info"><div class="item-name">Product Roadmap</div><div class="item-meta">usehalo.com/roadmap</div></div>
-      </a>
-      <a href="https://haloreleases.remmy.dev/" target="_blank" class="item-card">
-        <div class="color-box" style="background:rgba(6, 182, 212, 0.1); color:var(--cyan);">RN</div>
-        <div class="item-info"><div class="item-name">Halo Release Notes</div><div class="item-meta">haloreleases.remmy.dev</div></div>
-      </a>
-      <a href="https://status.haloitsm.com/" target="_blank" class="item-card">
-        <div class="color-box" style="background:rgba(239,68,68,0.1); color:var(--red);">ST</div>
-        <div class="item-info"><div class="item-name">System Status</div><div class="item-meta">status.haloitsm.com</div></div>
-      </a>
-      <a href="mailto:halonavigator@gmail.com" class="item-card">
-        <div class="color-box" style="background:rgba(129,140,248,0.1); color:var(--indigo);">M</div>
-        <div class="item-info"><div class="item-name">Contact Support</div><div class="item-meta">halonavigator@gmail.com</div></div>
-      </a>
+  <div id="theme-view" class="view">
+    <div class="card">
+      <div class="card-title">Personalise UI</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; padding: 4px;">
+        <span class="input-label" style="font-size:10px;">Mode</span>
+        <div id="mode-toggle" class="mode-toggle">🌙</div>
+      </div>
+
+      <div class="preset-grid" id="theme-presets">
+        <div class="preset-item" data-preset="halo" data-color="#00ff87">
+          <div class="preset-dot" style="background:#00ff87;"></div>
+          <span style="font-size:9px; font-weight:900; text-transform:uppercase;">Halo</span>
+        </div>
+        <div class="preset-item" data-preset="midnight" data-color="#818cf8">
+          <div class="preset-dot" style="background:#818cf8;"></div>
+          <span style="font-size:9px; font-weight:900; text-transform:uppercase;">Midnight</span>
+        </div>
+        <div class="preset-item" data-preset="ember" data-color="#f59e0b">
+          <div class="preset-dot" style="background:#f59e0b;"></div>
+          <span style="font-size:9px; font-weight:900; text-transform:uppercase;">Ember</span>
+        </div>
+        <div class="preset-item" data-preset="frost" data-color="#06b6d4">
+          <div class="preset-dot" style="background:#06b6d4;"></div>
+          <span style="font-size:9px; font-weight:900; text-transform:uppercase;">Frost</span>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <span class="input-label">Accent Colour</span>
+        <div style="display:flex; gap:12px; align-items:center;">
+          <input type="color" id="primary-color-picker" style="width:50px; height:50px; padding:4px;">
+          <input type="text" id="primary-color-hex" placeholder="#00ff87">
+        </div>
+      </div>
+      <button class="btn" id="theme-apply" style="margin-top:20px;">Apply Changes</button>
     </div>
   </div>
 
   <div id="tools-view" class="view">
     <div class="card">
-      <div class="card-title">Reporting Hub</div>
-      <p style="font-size:11px; color:var(--text-muted); line-height:1.5; margin-bottom:16px;">Launch the advanced SQL Query Generator to build complex HaloITSM reports with ease.</p>
-      <button class="btn" id="open-sql-gen" style="background:var(--accent); color:var(--bg);">Launch SQL Generator</button>
+      <div class="card-title">Utility Tools</div>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <div style="padding:12px; border-radius:12px; background:rgba(0,0,0,0.1); border:1px solid var(--border);">
+           <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                 <div class="input-label" style="color:var(--red); margin:0;">Mandatory Ghosting</div>
+                 <p style="font-size:9px; opacity:0.4; margin:2px 0 0;">Pulse highlight empty required fields.</p>
+              </div>
+              <label class="switch">
+                 <input type="checkbox" id="mandatory-ghost-toggle" checked>
+                 <span class="slider slider-red"></span>
+              </label>
+           </div>
+           <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; border-top:1px solid var(--border); padding-top:12px;">
+              <div>
+                 <div class="input-label" style="color:var(--accent); margin:0;">Custom Field Reveal</div>
+                 <p style="font-size:9px; opacity:0.4; margin:2px 0 0;">Show IDs for custom fields.</p>
+              </div>
+              <label class="switch">
+                 <input type="checkbox" id="field-reveal-toggle">
+                 <span class="slider"></span>
+              </label>
+           </div>
+        </div>
+        <button class="btn btn-secondary" id="launch-sql" style="text-align:left; justify-content:flex-start; padding:12px 16px;">
+          <div style="display:flex; flex-direction:column;">
+            <div style="font-size:10px; font-weight:900; color:var(--indigo);">Launch SQL Hub</div>
+            <div style="font-size:8px; opacity:0.4;">Advanced report builder</div>
+          </div>
+        </button>
+        <button class="btn btn-secondary" id="magic-fill-btn" style="text-align:left; justify-content:flex-start; padding:12px 16px;">
+           <div style="display:flex; flex-direction:column;">
+            <div style="font-size:10px; font-weight:900; color:var(--emerald);">Smart Fill Form</div>
+            <div style="font-size:8px; opacity:0.4;">Rapid testing for QA</div>
+          </div>
+        </button>
+      </div>
     </div>
-    <div class="card">
-      <div class="card-title">QA Utilities</div>
-      <p style="font-size:11px; color:var(--text-muted); line-height:1.5; margin-bottom:16px;">Instantly fill visible form fields with context-aware mock data to test your ticket workflows.</p>
-      <button class="btn" id="magic-fill-btn" style="background:var(--accent); color:var(--bg);">✨ Magic Fill Form</button>
-    </div>
+  </div>
+
+  <div id="links-view" class="view">
+    <div class="card-title">Halo Resources</div>
+    <div class="item-list" id="links-list"></div>
   </div>
 
   <div id="help-view" class="view">
-    <div style="text-align:center; margin-bottom:24px;">
-      <div style="width:48px; height:48px; background:rgba(0,255,135,0.1); color:var(--accent); border-radius:16px; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; font-size:24px; font-weight:900;">?</div>
-      <h2 style="font-size:16px; font-weight:900; text-transform:uppercase; letter-spacing:0.1em; margin:0;">Help & Guide</h2>
-      <p style="font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.2em; margin:4px 0 0;">Master your environment</p>
-    </div>
-
-    <div class="help-card">
-      <div class="help-icon" style="background:rgba(129,140,248,0.1); color:var(--indigo);">P</div>
-      <div class="help-content">
-        <div class="help-title" style="color:var(--indigo);">Tab Visuals (Rules)</div>
-        <div class="help-text">Define URL patterns (e.g. <b>tenant.haloitsm.com</b>). When matched, the tab will glow or change color so you never work in the wrong environment.</div>
+    <div class="card">
+      <div class="help-section">
+        <p class="help-title">Quick Start Guide</p>
+        <div class="step">
+          <div class="step-num">1</div>
+          <p class="help-text">Navigate to your <b>HaloITSM</b> instance in Chrome.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <p class="help-text">Open <b>Rules</b> and enter a URL pattern (e.g. <i>/prod</i> or <i>tenant.haloitsm.com</i>).</p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <p class="help-text">Set your <b>Style</b> and click <b>Save</b>. The active tab will immediately update.</p>
+        </div>
       </div>
-    </div>
 
-    <div class="help-card">
-      <div class="help-icon" style="background:rgba(245,158,11,0.1); color:var(--amber);">#</div>
-      <div class="help-content">
-        <div class="help-title" style="color:var(--amber);">Palette Hotkeys (#)</div>
-        <div class="help-text">Press <b>#</b> anywhere in Halo (outside of text fields) to open the jump palette. Type a code like <b>#prod</b> or <b>#as</b> to navigate instantly.</div>
+      <div class="help-section" style="border-top:1px solid var(--border); padding-top:20px;">
+        <p class="help-title"># Navigation Palette</p>
+        <p class="help-text">Press <kbd>#</kbd> on any Halo page to summon the quick navigation terminal.</p>
+        <div class="kb-table">
+           <div class="kb-row">
+              <span class="kb-key"><kbd>Enter</kbd></span>
+              <span class="kb-desc">Execute in current tab</span>
+           </div>
+           <div class="kb-row">
+              <span class="kb-key"><kbd>Esc</kbd></span>
+              <span class="kb-desc">Close Terminal</span>
+           </div>
+        </div>
+        <p class="help-text" style="font-size:10px; opacity:0.4; font-style:italic;">Note: Type <b>fill</b> in the terminal to trigger Smart Fill.</p>
       </div>
-    </div>
 
-    <div class="help-card">
-      <div class="help-icon" style="background:rgba(6,182,212,0.1); color:var(--cyan);">SQL</div>
-      <div class="help-content">
-        <div class="help-title" style="color:var(--cyan);">SQL Reporting Hub</div>
-        <div class="help-text">Use the SQL Generator in the Tools tab to build complex reports. It automatically handles table relationships and join logic for you.</div>
+      <div class="help-section" style="border-top:1px solid var(--border); padding-top:20px;">
+        <p class="help-title">UAT Utilities</p>
+        <div style="margin-bottom:16px;">
+           <span class="uat-badge" style="background:rgba(239,68,68,0.1); color:var(--red);">Mandatory Ghosting</span>
+           <p class="help-text" style="font-size:10px; margin-top:4px;">When active, empty required fields (marked with <span style="color:var(--red);">*</span>) will pulse red until populated.</p>
+        </div>
+        <div>
+           <span class="uat-badge" style="background:rgba(0,255,135,0.1); color:var(--accent);">Field ID Reveal</span>
+           <p class="help-text" style="font-size:10px; margin-top:4px;">Shows technical CF IDs on labels. Clicking the ID badge navigates straight to that field's configuration page.</p>
+        </div>
       </div>
-    </div>
 
-    <div class="help-card">
-      <div class="help-icon" style="background:rgba(16,185,129,0.1); color:var(--emerald);">✨</div>
-      <div class="help-content">
-        <div class="help-title" style="color:var(--emerald);">Magic Form Filler</div>
-        <div class="help-text">QA your ticket workflows in seconds. Click <b>Magic Fill</b> in the Tools tab (or use <b>#fill</b>) to populate forms with realistic test data.</div>
+      <div class="help-section" style="border-top:1px solid var(--border); padding-top:20px; text-align:center;">
+        <p class="help-text" style="font-weight:900; text-transform:uppercase; font-size:9px; opacity:0.3; letter-spacing:0.2em;">Contact Support</p>
+        <p class="help-text" style="font-size:10px;">Questions or Bugs? <a href="mailto:halonavigator@gmail.com" style="color:var(--accent); text-decoration:none;">halonavigator@gmail.com</a></p>
       </div>
-    </div>
-
-    <div style="margin-top:24px; padding:16px; border-top:1px solid var(--border); text-align:center;">
-       <p style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em;">Halo Navigator v1.1.0</p>
     </div>
   </div>
-
-  <div class="footer" id="footer-actions">
-    <button class="btn" id="global-save">Save & Apply All</button>
-  </div>
-
   <script src="popup.js"></script>
 </body>
 </html>

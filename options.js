@@ -1,282 +1,182 @@
+
 // Halo Navigator - Dashboard/Options Logic
 document.addEventListener('DOMContentLoaded', async () => {
-  // Elements
   const rulesList = document.getElementById('rules-list');
   const commandsList = document.getElementById('commands-list');
-  const globalSave = document.getElementById('global-save');
-  const ruleFormTitle = document.getElementById('rule-form-title');
-  const cmdFormTitle = document.getElementById('cmd-form-title');
+  const globalSaveTop = document.getElementById('global-save-top');
   
-  // Rule Form
   const ruleLabel = document.getElementById('rule-label');
   const rulePattern = document.getElementById('rule-pattern');
   const ruleStyle = document.getElementById('rule-style');
   const ruleColor = document.getElementById('rule-color');
   const ruleStrength = document.getElementById('rule-strength');
-  const strengthVal = document.getElementById('strength-val');
+  const ruleStrengthVal = document.getElementById('strength-val');
+  const ruleLabelPos = document.getElementById('rule-label-pos');
   const ruleHideLabel = document.getElementById('rule-hide-label');
-  const ruleLabelPosition = document.getElementById('rule-label-position');
-  
   const ruleCreate = document.getElementById('rule-create');
-  const ruleUpdate = document.getElementById('rule-update');
-  const ruleCancel = document.getElementById('rule-cancel');
-  const ruleEditActions = document.getElementById('rule-edit-actions');
 
-  // Command Form
   const cmdCode = document.getElementById('cmd-code');
   const cmdPath = document.getElementById('cmd-path');
   const cmdAdd = document.getElementById('cmd-add');
-  const cmdUpdate = document.getElementById('cmd-update');
-  const cmdCancel = document.getElementById('cmd-cancel');
-  const cmdEditActions = document.getElementById('cmd-edit-actions');
 
-  // State
+  const modeToggle = document.getElementById('mode-toggle');
+
   let rules = [];
   let commands = [];
-  let editingId = null;
+  let themeConfig = { mode: 'dark', primaryColor: '#00ff87', preset: 'halo', fieldIdReveal: false };
+  let editingRuleId = null;
   let editingCmdCode = null;
 
-  // Load Data
-  const data = await chrome.storage.local.get(['rules', 'commands']);
+  const data = await chrome.storage.local.get(['rules', 'commands', 'themeConfig']);
   rules = data.rules || [];
   commands = data.commands || [];
+  if (data.themeConfig) themeConfig = { ...themeConfig, ...data.themeConfig };
 
-  if (ruleStrength) {
-    ruleStrength.addEventListener('input', () => {
-      if (strengthVal) strengthVal.textContent = ruleStrength.value;
-    });
+  function applyThemeUI() {
+    document.body.setAttribute('data-theme', themeConfig.mode);
+    document.documentElement.style.setProperty('--accent', themeConfig.primaryColor);
+    modeToggle.textContent = themeConfig.mode === 'dark' ? '🌙' : '☀️';
   }
+  applyThemeUI();
+
+  const sync = async () => {
+    await chrome.storage.local.set({ rules, commands, themeConfig });
+    chrome.runtime.sendMessage({ type: 'RELOAD_RULES' }).catch(() => {});
+  };
+
+  modeToggle.onclick = () => { themeConfig.mode = themeConfig.mode === 'dark' ? 'light' : 'dark'; applyThemeUI(); sync(); };
+
+  ruleStrength.oninput = (e) => {
+    ruleStrengthVal.textContent = e.target.value;
+  };
 
   function renderRules() {
-    if (!rulesList) return;
     rulesList.innerHTML = '';
-    if (rules.length === 0) {
-      rulesList.innerHTML = '<div style="opacity: 0.3; text-align: center; padding: 40px; font-size: 13px;">No rules defined. Configure your first environment above.</div>';
-      return;
-    }
-    rules.forEach(rule => {
+    rules.forEach((rule) => {
       const item = document.createElement('div');
       item.className = 'item';
       item.innerHTML = `
-        <div class="color-dot" style="background: ${rule.color}"></div>
-        <div class="item-info">
-          <div class="item-label">
-            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${rule.label || 'Env'}</span>
-            <span class="tag">${rule.styleType}</span>
-            ${rule.hideLabel ? '<span class="tag" style="color:#ef4444">HIDDEN</span>' : `<span class="tag" style="opacity:0.6">${rule.labelPosition || 'right'}</span>`}
-          </div>
-          <div class="item-pattern">${rule.pattern}</div>
+        <div class="color-dot" style="background: ${rule.color}">
         </div>
-        <div class="item-actions">
-          <button class="action-btn edit-rule" data-id="${rule.id}">✎</button>
-          <button class="action-btn delete-rule delete" data-id="${rule.id}">✕</button>
+        <div class="item-info">
+          <div class="item-name">${rule.label} <span style="font-size:8px; opacity:0.4;">[${rule.styleType}]</span></div>
+          <div class="item-meta">${rule.pattern}</div>
+        </div>
+        <div style="display:flex; gap:12px;">
+           <button class="edit-rule-btn" data-id="${rule.id}" style="background:none; border:none; color:var(--text); cursor:pointer; font-size:14px; opacity:0.6;">✎</button>
+           <button class="delete-rule-btn" data-id="${rule.id}" style="color:var(--red); background:none; border:none; cursor:pointer; font-size:16px; opacity:0.6;">✕</button>
         </div>
       `;
       rulesList.appendChild(item);
     });
 
-    rulesList.querySelectorAll('.edit-rule').forEach(btn => {
-      btn.onclick = () => {
-        const rule = rules.find(r => r.id === btn.getAttribute('data-id'));
-        if (rule) startEditRule(rule);
-      };
+    rulesList.querySelectorAll('.delete-rule-btn').forEach(btn => {
+      btn.onclick = () => { rules = rules.filter(r => r.id !== btn.dataset.id); renderRules(); sync(); };
     });
 
-    rulesList.querySelectorAll('.delete-rule').forEach(btn => {
+    rulesList.querySelectorAll('.edit-rule-btn').forEach(btn => {
       btn.onclick = () => {
-        rules = rules.filter(r => r.id !== btn.getAttribute('data-id'));
-        renderRules();
+        const rule = rules.find(r => r.id === btn.dataset.id);
+        if (rule) {
+          editingRuleId = rule.id;
+          ruleLabel.value = rule.label;
+          rulePattern.value = rule.pattern;
+          ruleStyle.value = rule.styleType;
+          ruleColor.value = rule.color;
+          ruleStrength.value = rule.strength ?? 0;
+          ruleStrengthVal.textContent = rule.strength ?? 0;
+          ruleLabelPos.value = rule.labelPosition || 'right';
+          ruleHideLabel.checked = rule.hideLabel || false;
+          ruleCreate.textContent = 'Update Rule';
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
       };
     });
   }
 
   function renderCommands() {
-    if (!commandsList) return;
     commandsList.innerHTML = '';
-    if (commands.length === 0) {
-      commandsList.innerHTML = '<div style="opacity: 0.3; text-align: center; padding: 40px; font-size: 13px;">No shortcuts registered.</div>';
-      return;
-    }
-    commands.forEach(cmd => {
-      const isAbs = cmd.path.includes('://');
+    commands.forEach((cmd) => {
       const item = document.createElement('div');
       item.className = 'item';
       item.innerHTML = `
-        <div style="font-weight: 900; color: ${isAbs ? '#818cf8' : 'var(--accent)'}; width: 60px; font-size: 11px; flex-shrink: 0;">#${cmd.code.toUpperCase()}</div>
-        <div class="item-info">
-          <div class="item-pattern" style="color: #fff; font-size: 10px;">${cmd.path}</div>
-        </div>
-        <div class="item-actions">
-          <button class="action-btn edit-cmd" data-code="${cmd.code}">✎</button>
-          <button class="action-btn delete-cmd delete" data-code="${cmd.code}">✕</button>
+        <div style="font-weight:900; width:50px; font-size:12px; color:var(--accent);">#${cmd.code.toUpperCase()}</div>
+        <div class="item-info"><div class="item-meta" style="opacity:1;">${cmd.path}</div></div>
+        <div style="display:flex; gap:12px;">
+           <button class="edit-cmd-btn" data-code="${cmd.code}" style="background:none; border:none; color:var(--text); cursor:pointer; font-size:14px; opacity:0.6;">✎</button>
+           <button class="delete-cmd-btn" data-code="${cmd.code}" style="color:var(--red); background:none; border:none; cursor:pointer; font-size:16px; opacity:0.6;">✕</button>
         </div>
       `;
       commandsList.appendChild(item);
     });
 
-    commandsList.querySelectorAll('.edit-cmd').forEach(btn => {
-      btn.onclick = () => {
-        const cmd = commands.find(c => c.code === btn.getAttribute('data-code'));
-        if (cmd) startEditCmd(cmd);
-      };
+    commandsList.querySelectorAll('.delete-cmd-btn').forEach(btn => {
+      btn.onclick = () => { commands = commands.filter(c => c.code !== btn.dataset.code); renderCommands(); sync(); };
     });
 
-    commandsList.querySelectorAll('.delete-cmd').forEach(btn => {
+    commandsList.querySelectorAll('.edit-cmd-btn').forEach(btn => {
       btn.onclick = () => {
-        commands = commands.filter(c => c.code !== btn.getAttribute('data-code'));
-        renderCommands();
+        const cmd = commands.find(c => c.code === btn.dataset.code);
+        if (cmd) {
+          editingCmdCode = cmd.code;
+          cmdCode.value = cmd.code.toUpperCase();
+          cmdPath.value = cmd.path;
+          cmdAdd.textContent = 'Update Shortcut';
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
       };
     });
   }
 
-  function startEditRule(rule) {
-    editingId = rule.id;
-    ruleLabel.value = rule.label || '';
-    rulePattern.value = rule.pattern || '';
-    ruleStyle.value = rule.styleType || 'full';
-    ruleColor.value = rule.color || '#00ff87';
-    ruleStrength.value = rule.strength ?? 5;
-    strengthVal.textContent = rule.strength ?? 5;
-    ruleHideLabel.checked = rule.hideLabel || false;
-    ruleLabelPosition.value = rule.labelPosition || 'right';
-    
-    ruleFormTitle.textContent = 'Edit Environment: ' + (rule.label || rule.pattern);
-    ruleCreate.style.display = 'none';
-    ruleEditActions.style.display = 'flex';
-    rulePattern.style.borderColor = '';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
+  ruleCreate.onclick = () => {
+    if (!rulePattern.value) return;
 
-  function resetRuleForm() {
-    editingId = null;
-    ruleLabel.value = '';
-    rulePattern.value = '';
-    ruleStyle.value = 'full';
-    ruleColor.value = '#00ff87';
-    ruleStrength.value = 5;
-    strengthVal.textContent = '5';
-    ruleHideLabel.checked = false;
-    ruleLabelPosition.value = 'right';
-    
-    ruleFormTitle.textContent = 'Environment Rules';
-    ruleCreate.style.display = 'block';
-    ruleEditActions.style.display = 'none';
-    rulePattern.style.borderColor = '';
-  }
-
-  function startEditCmd(cmd) {
-    editingCmdCode = cmd.code;
-    cmdCode.value = cmd.code.toUpperCase();
-    cmdPath.value = cmd.path;
-    
-    cmdFormTitle.textContent = 'Edit Shortcut: #' + cmd.code.toUpperCase();
-    cmdAdd.style.display = 'none';
-    cmdEditActions.style.display = 'flex';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  function resetCommandForm() {
-    editingCmdCode = null;
-    cmdCode.value = '';
-    cmdPath.value = '';
-    
-    cmdFormTitle.textContent = 'Navigator Shortcuts';
-    cmdAdd.style.display = 'block';
-    cmdEditActions.style.display = 'none';
-  }
-
-  if (ruleCreate) {
-    ruleCreate.onclick = () => {
-      const pattern = rulePattern.value.trim();
-      if (!pattern) {
-        rulePattern.style.borderColor = '#ef4444';
-        rulePattern.focus();
-        return;
-      }
-      rulePattern.style.borderColor = '';
-      rules.push({
-        id: Date.now().toString(),
-        label: ruleLabel.value.trim() || 'Env',
-        pattern: pattern,
+    if (editingRuleId) {
+      rules = rules.map(r => r.id === editingRuleId ? {
+        ...r,
+        label: ruleLabel.value || 'Env',
+        pattern: rulePattern.value,
         styleType: ruleStyle.value,
         color: ruleColor.value,
         strength: parseInt(ruleStrength.value),
-        hideLabel: ruleHideLabel.checked,
-        labelPosition: ruleLabelPosition.value
+        labelPosition: ruleLabelPos.value,
+        hideLabel: ruleHideLabel.checked
+      } : r);
+      editingRuleId = null;
+      ruleCreate.textContent = 'Add Environment Rule';
+    } else {
+      rules.push({
+        id: Date.now().toString(),
+        label: ruleLabel.value || 'Env',
+        pattern: rulePattern.value,
+        styleType: ruleStyle.value,
+        color: ruleColor.value,
+        strength: parseInt(ruleStrength.value) || 0,
+        labelPosition: ruleLabelPos.value,
+        hideLabel: ruleHideLabel.checked
       });
-      resetRuleForm();
-      renderRules();
-    };
-  }
+    }
 
-  if (ruleUpdate) {
-    ruleUpdate.onclick = () => {
-      const pattern = rulePattern.value.trim();
-      if (!pattern) {
-        rulePattern.style.borderColor = '#ef4444';
-        rulePattern.focus();
-        return;
-      }
-      rulePattern.style.borderColor = '';
+    rulePattern.value = ''; ruleLabel.value = ''; ruleStrength.value = 0; ruleStrengthVal.textContent = 0; renderRules(); sync();
+  };
 
-      const idx = rules.findIndex(r => r.id === editingId);
-      if (idx !== -1) {
-        rules[idx] = {
-          ...rules[idx],
-          label: ruleLabel.value.trim() || 'Env',
-          pattern: pattern,
-          styleType: ruleStyle.value,
-          color: ruleColor.value,
-          strength: parseInt(ruleStrength.value),
-          hideLabel: ruleHideLabel.checked,
-          labelPosition: ruleLabelPosition.value
-        };
-      }
-      resetRuleForm();
-      renderRules();
-    };
-  }
+  cmdAdd.onclick = () => {
+    if (!cmdCode.value || !cmdPath.value) return;
+    const code = cmdCode.value.trim().toLowerCase();
 
-  if (ruleCancel) ruleCancel.onclick = resetRuleForm;
-
-  if (cmdAdd) {
-    cmdAdd.onclick = () => {
-      const code = cmdCode.value.trim().toLowerCase();
-      const path = cmdPath.value.trim();
-      if (!code || !path) return;
+    if (editingCmdCode) {
+      commands = commands.map(c => c.code === editingCmdCode ? { code, path: cmdPath.value } : c);
+      editingCmdCode = null;
+      cmdAdd.textContent = 'Register Shortcut';
+    } else {
       if (commands.find(c => c.code === code)) return;
-      commands.push({ code, path });
-      cmdCode.value = '';
-      cmdPath.value = '';
-      renderCommands();
-    };
-  }
+      commands.push({ code, path: cmdPath.value });
+    }
 
-  if (cmdUpdate) {
-    cmdUpdate.onclick = () => {
-      const code = cmdCode.value.trim().toLowerCase();
-      const path = cmdPath.value.trim();
-      if (!code || !path || !editingCmdCode) return;
-      
-      const idx = commands.findIndex(c => c.code === editingCmdCode);
-      if (idx !== -1) {
-        commands[idx] = { code, path };
-      }
-      resetCommandForm();
-      renderCommands();
-    };
-  }
+    cmdCode.value = ''; cmdPath.value = ''; renderCommands(); sync();
+  };
 
-  if (cmdCancel) cmdCancel.onclick = resetCommandForm;
-
-  if (globalSave) {
-    globalSave.onclick = async () => {
-      await chrome.storage.local.set({ rules, commands });
-      const originalText = globalSave.textContent;
-      globalSave.textContent = 'Settings Successfully Applied!';
-      setTimeout(() => globalSave.textContent = originalText, 2000);
-    };
-  }
+  globalSaveTop.onclick = async () => { await sync(); globalSaveTop.textContent = 'Settings Deployed!'; setTimeout(() => globalSaveTop.textContent = 'Deploy Settings', 2000); };
 
   renderRules();
   renderCommands();

@@ -1,343 +1,330 @@
+
 // Halo Navigator - Popup Logic
 document.addEventListener('DOMContentLoaded', async () => {
   // Elements
+  const modeToggle = document.getElementById('mode-toggle');
+  const primaryColorPicker = document.getElementById('primary-color-picker');
+  const primaryColorHex = document.getElementById('primary-color-hex');
+  const themePresetsGrid = document.getElementById('theme-presets');
+  const themeApply = document.getElementById('theme-apply');
+  const mandatoryGhostToggle = document.getElementById('mandatory-ghost-toggle');
+
   const rulesList = document.getElementById('rules-list');
   const commandsList = document.getElementById('commands-list');
-  const globalSave = document.getElementById('global-save');
-  const footerActions = document.getElementById('footer-actions');
+  const linksList = document.getElementById('links-list');
   const openOptions = document.getElementById('open-options');
-  const openSqlGen = document.getElementById('open-sql-gen');
+  const saveButtons = document.querySelectorAll('.save-btn');
   const magicFillBtn = document.getElementById('magic-fill-btn');
+  const launchSqlBtn = document.getElementById('launch-sql');
+  const fieldRevealToggle = document.getElementById('field-reveal-toggle');
   
-  // Rule Form
   const ruleLabel = document.getElementById('rule-label');
   const rulePattern = document.getElementById('rule-pattern');
   const ruleStyle = document.getElementById('rule-style');
   const ruleColor = document.getElementById('rule-color');
   const ruleStrength = document.getElementById('rule-strength');
-  const strengthVal = document.getElementById('strength-val');
+  const ruleStrengthVal = document.getElementById('strength-val');
+  const ruleLabelPos = document.getElementById('rule-label-pos');
   const ruleHideLabel = document.getElementById('rule-hide-label');
-  const ruleLabelPosition = document.getElementById('rule-label-position');
   const ruleCreate = document.getElementById('rule-create');
-  const ruleUpdate = document.getElementById('rule-update');
-  const ruleCancel = document.getElementById('rule-cancel');
-  const ruleEditActions = document.getElementById('rule-edit-actions');
-  const ruleFormTitle = document.getElementById('rule-form-title');
 
-  // Command Form
   const cmdCode = document.getElementById('cmd-code');
   const cmdPath = document.getElementById('cmd-path');
   const cmdAdd = document.getElementById('cmd-add');
-  const cmdUpdate = document.getElementById('cmd-update');
-  const cmdCancel = document.getElementById('cmd-cancel');
-  const cmdEditActions = document.getElementById('cmd-edit-actions');
-  const cmdFormTitle = document.getElementById('cmd-form-title');
 
   // State
   let rules = [];
   let commands = [];
-  let editingId = null;
+  let themeConfig = { mode: 'dark', primaryColor: '#00ff87', preset: 'halo', fieldIdReveal: false, mandatoryGhosting: false };
+  let editingRuleId = null;
   let editingCmdCode = null;
 
-  const DEFAULT_SHORTCUTS = [
-    { code: 'prod', path: 'https://tenant.haloitsm.com' },
-    { code: 'dev', path: 'https://dev.haloitsm.com' },
-    { code: 'uat', path: 'https://uat.haloitsm.com' },
-    { code: 'as', path: '/assets' },
-    { code: 'con', path: '/config' },
-    { code: 'rep', path: '/reports' },
-    { code: 'tic', path: '/tickets' }
+  const HALO_LINKS = [
+    { title: "Halo Support", desc: "support.haloservicedesk.com", url: "https://support.haloservicedesk.com/portal/", initial: "S", color: "var(--accent)", bg: "rgba(0,255,135,0.1)" },
+    { title: "Halo Community", desc: "community.haloitsm.com", url: "https://community.haloitsm.com/", initial: "C", color: "var(--accent)", bg: "rgba(0,255,135,0.1)" },
+    { title: "Admin Hangout", desc: "discord.com/haloitsm", url: "https://discord.com/channels/1050832376185495562", initial: "D", color: "var(--accent)", bg: "rgba(0,255,135,0.1)" },
+    { title: "Product Roadmap", desc: "usehalo.com/roadmap", url: "https://usehalo.com/haloitsm/roadmap/", initial: "R", color: "var(--amber)", bg: "rgba(245,158,11,0.1)" },
+    { title: "Halo Release Notes", desc: "haloreleases.remmy.dev", url: "https://haloreleases.remmy.dev/", initial: "RN", color: "var(--cyan)", bg: "rgba(6, 182, 212, 0.1)" },
+    { title: "System Status", desc: "status.haloitsm.com", url: "https://status.haloitsm.com/", initial: "ST", color: "var(--red)", bg: "rgba(239,68,68,0.1)" },
+    { title: "Contact Support", desc: "halonavigator@gmail.com", url: "mailto:halonavigator@gmail.com", initial: "M", color: "var(--indigo)", bg: "rgba(129,140,248,0.1)" }
   ];
 
   // Load Data
-  const data = await chrome.storage.local.get(['rules', 'commands']);
+  const data = await chrome.storage.local.get(['rules', 'commands', 'themeConfig']);
   rules = data.rules || [];
-  commands = (data.commands && data.commands.length > 0) ? data.commands : DEFAULT_SHORTCUTS;
+  commands = data.commands || [];
+  if (data.themeConfig) themeConfig = { ...themeConfig, ...data.themeConfig };
 
-  // Launch SQL Generator
-  if (openSqlGen) {
-    openSqlGen.onclick = () => {
-      chrome.tabs.create({ url: 'sql-generator.html' });
-    };
-  }
-
-  // Magic Fill Form
-  if (magicFillBtn) {
-    magicFillBtn.onclick = () => {
-      chrome.runtime.sendMessage({ type: 'FILL_FORM' });
-    };
-  }
-
-  // Open Options Page
-  if (openOptions) {
-    openOptions.addEventListener('click', () => {
-      if (chrome.runtime.openOptionsPage) {
-        chrome.runtime.openOptionsPage(() => {
-          if (chrome.runtime.lastError) {
-            chrome.tabs.create({ url: 'options.html' });
-          }
+  // Apply Theme
+  function applyTheme(config) {
+    document.body.setAttribute('data-theme', config.mode);
+    document.documentElement.style.setProperty('--accent', config.primaryColor);
+    if (modeToggle) {
+        modeToggle.innerHTML = config.mode === 'dark' ? '🌙' : '☀️';
+        modeToggle.style.color = config.mode === 'dark' ? '#a5b4fc' : '#f59e0b';
+    }
+    if (primaryColorPicker) primaryColorPicker.value = config.primaryColor;
+    if (primaryColorHex) primaryColorHex.value = config.primaryColor;
+    if (mandatoryGhostToggle) mandatoryGhostToggle.checked = config.mandatoryGhosting === true;
+    if (fieldRevealToggle) fieldRevealToggle.checked = config.fieldIdReveal === true;
+    
+    // Highlight active preset
+    if (themePresetsGrid) {
+        themePresetsGrid.querySelectorAll('.preset-item').forEach(p => {
+            const name = p.dataset.preset;
+            if (name === config.preset) {
+                p.classList.add('active');
+                p.style.borderColor = config.primaryColor;
+                p.style.backgroundColor = `${config.primaryColor}15`;
+            } else {
+                p.classList.remove('active');
+                p.style.borderColor = '';
+                p.style.backgroundColor = '';
+            }
         });
-      } else {
-        chrome.tabs.create({ url: 'options.html' });
-      }
-    });
+    }
+    renderLinks(); // Re-render links to update accent colors if necessary
   }
 
-  // Tab Switching Logic
-  const tabButtons = document.querySelectorAll('.tab-btn');
-  const tabViews = document.querySelectorAll('.view');
-  
-  tabButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const targetId = btn.getAttribute('data-tab');
-      tabButtons.forEach(b => b.classList.remove('active'));
-      tabViews.forEach(v => v.classList.remove('active'));
-      btn.classList.add('active');
-      const targetView = document.getElementById(targetId);
-      if (targetView) targetView.classList.add('active');
-      
-      // Hide global save footer for info tabs and tools tab
-      if (footerActions) {
-        footerActions.style.display = (targetId === 'help-view' || targetId === 'links-view' || targetId === 'tools-view') ? 'none' : 'block';
-      }
-    });
-  });
+  const saveAll = async () => {
+    await chrome.storage.local.set({ rules, commands, themeConfig });
+    chrome.runtime.sendMessage({ type: 'RELOAD_RULES' }).catch(() => {});
+  };
 
-  if (ruleStrength) {
-    ruleStrength.addEventListener('input', () => {
-      if (strengthVal) strengthVal.textContent = ruleStrength.value;
-    });
-  }
+  // Rule Strength UI Helper
+  ruleStrength.oninput = (e) => {
+    ruleStrengthVal.textContent = e.target.value;
+  };
+
+  // Rule Handlers
+  ruleCreate.onclick = async () => {
+    if (!rulePattern.value) return;
+
+    if (editingRuleId) {
+      rules = rules.map(r => r.id === editingRuleId ? {
+        ...r,
+        label: ruleLabel.value || 'Env',
+        pattern: rulePattern.value,
+        styleType: ruleStyle.value,
+        color: ruleColor.value,
+        strength: parseInt(ruleStrength.value),
+        labelPosition: ruleLabelPos.value,
+        hideLabel: ruleHideLabel.checked
+      } : r);
+      editingRuleId = null;
+      ruleCreate.textContent = 'Add Rule';
+    } else {
+      rules.push({
+        id: Date.now().toString(),
+        label: ruleLabel.value || 'Env',
+        pattern: rulePattern.value,
+        styleType: ruleStyle.value,
+        color: ruleColor.value,
+        strength: parseInt(ruleStrength.value) || 0,
+        hideLabel: ruleHideLabel.checked,
+        labelPosition: ruleLabelPos.value
+      });
+    }
+    
+    rulePattern.value = ''; ruleLabel.value = ''; ruleStrength.value = 0; ruleStrengthVal.textContent = 0;
+    renderRules();
+    await saveAll();
+  };
 
   function renderRules() {
     if (!rulesList) return;
     rulesList.innerHTML = '';
-    if (rules.length === 0) {
-      rulesList.innerHTML = '<div style="font-size: 11px; opacity: 0.4; text-align: center; padding: 40px;">No rules defined. Add your first environment above.</div>';
-      return;
-    }
-    rules.forEach(rule => {
-      const item = document.createElement('div');
-      item.className = 'item-card';
-      item.innerHTML = `
-        <div class="color-box" style="background: ${rule.color}"></div>
+    rules.forEach((rule) => {
+      const card = document.createElement('div');
+      card.className = `item-card ${editingRuleId === rule.id ? 'editing-highlight' : ''}`;
+      card.innerHTML = `
+        <div class="color-box" style="background: ${rule.color}">
+        </div>
         <div class="item-info">
           <div class="item-header">
-            <span class="item-name">${rule.label || 'Env'}</span>
-            <span class="badge">${rule.styleType}</span>
-            ${rule.hideLabel ? '<span class="badge red">HIDDEN</span>' : ''}
-            ${!rule.hideLabel && rule.labelPosition !== 'right' ? `<span class="badge blue">${rule.labelPosition}</span>` : ''}
+            <span class="item-name">${rule.label}</span>
+            <div style="display:flex; gap:8px;">
+               <button class="edit-item" data-id="${rule.id}" style="color:var(--text); background:none; border:none; cursor:pointer; font-size:12px; opacity:0.6;">✎</button>
+               <button class="delete-item" data-id="${rule.id}">✕</button>
+            </div>
           </div>
           <div class="item-meta">${rule.pattern}</div>
         </div>
-        <div class="actions">
-          <button class="act-btn edit-rule" data-id="${rule.id}">✎</button>
-          <button class="act-btn del delete-rule" data-id="${rule.id}">✕</button>
-        </div>
       `;
-      rulesList.appendChild(item);
+      rulesList.appendChild(card);
     });
-    rulesList.querySelectorAll('.edit-rule').forEach(btn => {
-      btn.onclick = () => {
-        const rule = rules.find(r => r.id === btn.getAttribute('data-id'));
-        if (rule) startEditRule(rule);
+
+    rulesList.querySelectorAll('.delete-item').forEach(btn => {
+      btn.onclick = async () => {
+        rules = rules.filter(r => r.id !== btn.dataset.id);
+        renderRules();
+        await saveAll();
       };
     });
-    rulesList.querySelectorAll('.delete-rule').forEach(btn => {
+
+    rulesList.querySelectorAll('.edit-item').forEach(btn => {
       btn.onclick = () => {
-        rules = rules.filter(r => r.id !== btn.getAttribute('data-id'));
-        renderRules();
+        const rule = rules.find(r => r.id === btn.dataset.id);
+        if (rule) {
+          editingRuleId = rule.id;
+          ruleLabel.value = rule.label;
+          rulePattern.value = rule.pattern;
+          ruleStyle.value = rule.styleType;
+          ruleColor.value = rule.color;
+          ruleStrength.value = rule.strength ?? 0;
+          ruleStrengthVal.textContent = rule.strength ?? 0;
+          ruleLabelPos.value = rule.labelPosition || 'right';
+          ruleHideLabel.checked = rule.hideLabel || false;
+          ruleCreate.textContent = 'Update Rule';
+          renderRules();
+          document.getElementById('rules-view').scrollTo({ top: 0, behavior: 'smooth' });
+        }
       };
     });
   }
+
+  function renderLinks() {
+    if (!linksList) return;
+    linksList.innerHTML = '';
+    HALO_LINKS.forEach(link => {
+      const card = document.createElement('a');
+      card.href = link.url;
+      card.target = "_blank";
+      card.className = "item-card";
+      card.style.textDecoration = "none";
+      card.innerHTML = `
+        <div class="color-box" style="background: ${link.bg}; color: ${link.color};">
+          ${link.initial}
+        </div>
+        <div class="item-info">
+          <div class="item-name">${link.title}</div>
+          <div class="item-meta">${link.desc}</div>
+        </div>
+      `;
+      linksList.appendChild(card);
+    });
+  }
+
+  // Command Handlers
+  cmdAdd.onclick = async () => {
+    if (!cmdCode.value || !cmdPath.value) return;
+    const code = cmdCode.value.toLowerCase();
+    
+    if (editingCmdCode) {
+      commands = commands.map(c => c.code === editingCmdCode ? { code, path: cmdPath.value } : c);
+      editingCmdCode = null;
+      cmdAdd.textContent = 'Add';
+    } else {
+      commands.push({ code, path: cmdPath.value });
+    }
+    
+    cmdCode.value = ''; cmdPath.value = '';
+    renderCommands();
+    await saveAll();
+  };
 
   function renderCommands() {
     if (!commandsList) return;
     commandsList.innerHTML = '';
-    if (commands.length === 0) {
-      commandsList.innerHTML = '<div style="font-size: 11px; opacity: 0.4; text-align: center; padding: 40px;">No shortcuts registered</div>';
-      return;
-    }
-    commands.forEach(cmd => {
+    commands.forEach((cmd) => {
       const isAbs = cmd.path.includes('://');
-      const item = document.createElement('div');
-      item.className = 'item-card';
-      item.innerHTML = `
-        <div class="color-box" style="background: ${isAbs ? 'rgba(129,140,248,0.1)' : 'rgba(0,255,135,0.1)'}; display:flex; align-items:center; justify-content:center; color:${isAbs ? '#818cf8' : 'var(--accent)'}; font-weight:900; font-size:9px;">
+      const card = document.createElement('div');
+      card.className = `item-card ${editingCmdCode === cmd.code ? 'editing-highlight' : ''}`;
+      card.innerHTML = `
+        <div class="shortcut-label" style="color: ${isAbs ? 'var(--indigo)' : 'var(--accent)'}; font-size:11px; opacity: 1; font-weight: 900;">
           #${cmd.code.toUpperCase()}
         </div>
         <div class="item-info">
-          <div class="item-meta" style="color: #fff; opacity:0.8;">${cmd.path}</div>
-        </div>
-        <div class="actions">
-          <button class="act-btn edit-cmd" data-code="${cmd.code}">✎</button>
-          <button class="act-btn del delete-cmd" data-code="${cmd.code}">✕</button>
+          <div class="item-header">
+            <div class="item-meta" style="opacity:1;">${cmd.path}</div>
+            <div style="display:flex; gap:8px;">
+               <button class="edit-cmd" data-code="${cmd.code}" style="color:var(--text); background:none; border:none; cursor:pointer; font-size:12px; opacity:0.6;">✎</button>
+               <button class="delete-cmd" data-code="${cmd.code}" style="color:var(--red); background:none; border:none; cursor:pointer; font-size:14px;">✕</button>
+            </div>
+          </div>
         </div>
       `;
-      commandsList.appendChild(item);
+      commandsList.appendChild(card);
     });
+
+    commandsList.querySelectorAll('.delete-cmd').forEach(btn => {
+      btn.onclick = async () => {
+        commands = commands.filter(c => c.code !== btn.dataset.code);
+        renderCommands();
+        await saveAll();
+      };
+    });
+
     commandsList.querySelectorAll('.edit-cmd').forEach(btn => {
       btn.onclick = () => {
-        const cmd = commands.find(c => c.code === btn.getAttribute('data-code'));
-        if (cmd) startEditCommand(cmd);
-      };
-    });
-    commandsList.querySelectorAll('.delete-cmd').forEach(btn => {
-      btn.onclick = () => {
-        commands = commands.filter(c => c.code !== btn.getAttribute('data-code'));
-        renderCommands();
-      };
-    });
-  }
-
-  function startEditRule(rule) {
-    editingId = rule.id;
-    ruleLabel.value = rule.label || '';
-    rulePattern.value = rule.pattern || '';
-    ruleStyle.value = rule.styleType || 'full';
-    ruleColor.value = rule.color || '#00ff87';
-    ruleStrength.value = rule.strength ?? 5;
-    strengthVal.textContent = rule.strength ?? 5;
-    ruleHideLabel.checked = rule.hideLabel || false;
-    ruleLabelPosition.value = rule.labelPosition || 'right';
-    
-    ruleFormTitle.textContent = 'Edit Rule: ' + (rule.label || 'Env');
-    ruleCreate.style.display = 'none';
-    ruleEditActions.style.display = 'flex';
-    document.getElementById('rules-view').scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  function resetRuleForm() {
-    editingId = null;
-    ruleLabel.value = '';
-    rulePattern.value = '';
-    ruleStyle.value = 'full';
-    ruleColor.value = '#00ff87';
-    ruleStrength.value = 5;
-    strengthVal.textContent = '5';
-    ruleHideLabel.checked = false;
-    ruleLabelPosition.value = 'right';
-    
-    ruleFormTitle.textContent = 'Create New Rule';
-    ruleCreate.style.display = 'flex';
-    ruleEditActions.style.display = 'none';
-  }
-
-  function startEditCommand(cmd) {
-    editingCmdCode = cmd.code;
-    cmdCode.value = cmd.code.toUpperCase();
-    cmdPath.value = cmd.path;
-    
-    cmdFormTitle.textContent = 'Edit Shortcut: #' + cmd.code.toUpperCase();
-    cmdAdd.style.display = 'none';
-    cmdEditActions.style.display = 'flex';
-    document.getElementById('shortcuts-view').scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  function resetCommandForm() {
-    editingCmdCode = null;
-    cmdCode.value = '';
-    cmdPath.value = '';
-    
-    cmdFormTitle.textContent = 'Shortcut Settings';
-    cmdAdd.style.display = 'flex';
-    cmdEditActions.style.display = 'none';
-  }
-
-  if (ruleCreate) {
-    ruleCreate.onclick = () => {
-      const pattern = rulePattern.value.trim();
-      if (!pattern) { 
-        rulePattern.style.borderColor = 'var(--red)';
-        rulePattern.focus();
-        return; 
-      }
-      rulePattern.style.borderColor = '';
-      rules.push({
-        id: Date.now().toString(),
-        label: ruleLabel.value.trim() || 'Env',
-        pattern: pattern,
-        styleType: ruleStyle.value,
-        color: ruleColor.value,
-        strength: parseInt(ruleStrength.value),
-        hideLabel: ruleHideLabel.checked,
-        labelPosition: ruleLabelPosition.value
-      });
-      resetRuleForm();
-      renderRules();
-    };
-  }
-
-  if (ruleUpdate) {
-    ruleUpdate.onclick = () => {
-      const pattern = rulePattern.value.trim();
-      if (!pattern) return;
-      
-      const idx = rules.findIndex(r => r.id === editingId);
-      if (idx !== -1) {
-        rules[idx] = {
-          ...rules[idx],
-          label: ruleLabel.value.trim() || 'Env',
-          pattern: pattern,
-          styleType: ruleStyle.value,
-          color: ruleColor.value,
-          strength: parseInt(ruleStrength.value),
-          hideLabel: ruleHideLabel.checked,
-          labelPosition: ruleLabelPosition.value
-        };
-      }
-      resetRuleForm();
-      renderRules();
-    };
-  }
-
-  if (ruleCancel) ruleCancel.onclick = resetRuleForm;
-
-  if (cmdAdd) {
-    cmdAdd.onclick = () => {
-      const code = cmdCode.value.trim().toLowerCase();
-      const path = cmdPath.value.trim();
-      if (!code || !path) return;
-      if (commands.find(c => c.code === code)) return;
-      commands.push({ code, path });
-      cmdCode.value = '';
-      cmdPath.value = '';
-      renderCommands();
-    };
-  }
-
-  if (cmdUpdate) {
-    cmdUpdate.onclick = () => {
-      const code = cmdCode.value.trim().toLowerCase();
-      const path = cmdPath.value.trim();
-      if (!code || !path || !editingCmdCode) return;
-      
-      const idx = commands.findIndex(c => c.code === editingCmdCode);
-      if (idx !== -1) {
-        commands[idx] = { code, path };
-      }
-      resetCommandForm();
-      renderCommands();
-    };
-  }
-
-  if (cmdCancel) cmdCancel.onclick = resetCommandForm;
-
-  if (globalSave) {
-    globalSave.onclick = async () => {
-      await chrome.storage.local.set({ rules, commands });
-      const originalText = globalSave.textContent;
-      globalSave.textContent = 'Settings Applied!';
-      try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (tab && tab.url && !tab.url.startsWith('chrome://')) {
-           await chrome.tabs.sendMessage(tab.id, { type: 'RELOAD_RULES' }).catch(() => {});
+        const cmd = commands.find(c => c.code === btn.dataset.code);
+        if (cmd) {
+          editingCmdCode = cmd.code;
+          cmdCode.value = cmd.code.toUpperCase();
+          cmdPath.value = cmd.path;
+          cmdAdd.textContent = 'Update';
+          renderCommands();
+          document.getElementById('shortcuts-view').scrollTo({ top: 0, behavior: 'smooth' });
         }
-      } catch (e) {}
-      setTimeout(() => globalSave.textContent = originalText, 2000);
-    };
+      };
+    });
   }
 
+  // Theme Handlers
+  if (modeToggle) modeToggle.onclick = () => { themeConfig.mode = themeConfig.mode === 'dark' ? 'light' : 'dark'; applyTheme(themeConfig); saveAll(); };
+  if (mandatoryGhostToggle) mandatoryGhostToggle.onchange = (e) => { themeConfig.mandatoryGhosting = e.target.checked; saveAll(); };
+  if (fieldRevealToggle) fieldRevealToggle.onchange = (e) => { themeConfig.fieldIdReveal = e.target.checked; saveAll(); };
+
+  if (primaryColorPicker) primaryColorPicker.oninput = (e) => { 
+    themeConfig.primaryColor = e.target.value; 
+    themeConfig.preset = 'custom'; 
+    primaryColorHex.value = e.target.value;
+    applyTheme(themeConfig); 
+  };
+  
+  if (primaryColorHex) primaryColorHex.oninput = (e) => {
+    const val = e.target.value;
+    if (/^#[0-9A-F]{6}$/i.test(val)) {
+        themeConfig.primaryColor = val;
+        themeConfig.preset = 'custom';
+        primaryColorPicker.value = val;
+        applyTheme(themeConfig);
+    }
+  };
+
+  // Preset Selection Logic
+  if (themePresetsGrid) {
+    themePresetsGrid.querySelectorAll('.preset-item').forEach(p => {
+        p.onclick = () => {
+            themeConfig.preset = p.dataset.preset;
+            themeConfig.primaryColor = p.dataset.color;
+            applyTheme(themeConfig);
+        };
+    });
+  }
+
+  if (themeApply) themeApply.onclick = async () => { await saveAll(); themeApply.textContent = 'Updated!'; setTimeout(() => themeApply.textContent = 'Apply Changes', 2000); };
+
+  // Tab Logic
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.tab-btn, .view').forEach(el => el.classList.remove('active'));
+      btn.classList.add('active');
+      const targetId = btn.dataset.tab;
+      const targetView = document.getElementById(targetId);
+      if (targetView) targetView.classList.add('active');
+    };
+  });
+
+  // Tool Handlers
+  if (magicFillBtn) magicFillBtn.onclick = () => chrome.runtime.sendMessage({ type: 'FILL_FORM' });
+  if (launchSqlBtn) launchSqlBtn.onclick = () => chrome.tabs.create({ url: 'sql-generator.html' });
+  if (openOptions) openOptions.onclick = () => chrome.runtime.openOptionsPage();
+  saveButtons.forEach(btn => btn.onclick = async () => { await saveAll(); btn.textContent = 'Saved!'; setTimeout(() => btn.textContent = 'Save', 2000); });
+
+  // Initial Render
+  applyTheme(themeConfig);
   renderRules();
   renderCommands();
+  renderLinks();
 });
