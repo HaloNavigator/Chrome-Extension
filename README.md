@@ -1,5 +1,13 @@
 Halo Navigator is a specialised Chrome extension designed for administrators, developers, and power users of the HaloITSM platform. Its primary goal is to prevent costly mistakes and boost productivity when managing multiple environments (like Development, UAT, and Production).
 
+V2.5 Updates
+
+Fixed: Tab displays
+New: Export\Import JSON - save config, iport to another or same browser
+New: NT commands - open a new Halo Tab or NT space open a new Halo tab with a configured jump
+New: Vault Tab - Snapshot text fields to reinject later - good for long forms like Change. 
+New: SQL Prettify - improve the layout of custom SQL in reports
+
 Here is a breakdown of what the extension does:
 
 1. Visual Environment Guardrails
