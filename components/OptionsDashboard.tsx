@@ -1,27 +1,49 @@
-import React, { useState } from 'react';
-import { NavigatorRule, CommandMapping, TabStyleType, LabelPosition } from '../App';
-import { TrashIcon, EditIcon, PlusIcon, GlobeIcon, CommandIcon, SaveIcon, XIcon } from './Icons';
+
+import React, { useState, useMemo } from 'react';
+import { NavigatorRule, CommandMapping, TabStyleType, LabelPosition, ThemeConfig } from '../App';
+import { TrashIcon, EditIcon, PlusIcon, GlobeIcon, CommandIcon, SaveIcon, XIcon, SunIcon, MoonIcon, PaletteIcon, CodeBracketIcon, SparklesIcon, FileJsonIcon, SearchIcon, DownloadIcon, UploadIcon, HelpCircleIcon } from './Icons';
+
+const Toggle: React.FC<{ checked: boolean; onChange: (val: boolean) => void; accent: string }> = ({ checked, onChange, accent }) => (
+  <button 
+    onClick={() => onChange(!checked)}
+    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${checked ? '' : 'bg-slate-700/50'}`}
+    style={{ backgroundColor: checked ? accent : undefined }}
+  >
+    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
+  </button>
+);
 
 interface OptionsDashboardProps {
   rules: NavigatorRule[];
   commands: CommandMapping[];
+  themeConfig: ThemeConfig;
   onUpdateRules: (rules: NavigatorRule[]) => void;
   onUpdateCommands: (cmds: CommandMapping[]) => void;
+  onUpdateTheme: (config: ThemeConfig) => void;
   onSave: () => void;
+  onOpenSqlGen?: () => void;
+  onMagicFill?: () => void;
+  onFormatSql?: () => void;
+  onExport: () => void;
+  onImport: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 export const OptionsDashboard: React.FC<OptionsDashboardProps> = ({
-  rules, commands, onUpdateRules, onUpdateCommands, onSave
+  rules, commands, themeConfig, onUpdateRules, onUpdateCommands, onUpdateTheme, onSave, onOpenSqlGen, onMagicFill, onFormatSql, onExport, onImport
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingCmdCode, setEditingCmdCode] = useState<string | null>(null);
+  const [shortcutSearch, setShortcutSearch] = useState('');
   
+  const isDarkMode = themeConfig.mode === 'dark';
+  const accent = themeConfig.primaryColor;
+
   // Rule Form State
   const [label, setLabel] = useState('');
   const [pattern, setPattern] = useState('');
   const [style, setStyle] = useState<TabStyleType>('full');
-  const [color, setColor] = useState('#00ff87');
-  const [strength, setStrength] = useState(5);
+  const [color, setColor] = useState(accent);
+  const [strength, setStrength] = useState(0); 
   const [hideLabel, setHideLabel] = useState(false);
   const [labelPosition, setLabelPosition] = useState<LabelPosition>('right');
 
@@ -59,205 +81,269 @@ export const OptionsDashboard: React.FC<OptionsDashboardProps> = ({
     setPattern(rule.pattern);
     setStyle(rule.styleType);
     setColor(rule.color);
-    setStrength(rule.strength);
+    setStrength(rule.strength ?? 0);
     setHideLabel(rule.hideLabel);
     setLabelPosition(rule.labelPosition || 'right');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const resetRuleForm = () => {
-    setEditingId(null);
-    setLabel('');
-    setPattern('');
-    setStyle('full');
-    setColor('#00ff87');
-    setStrength(5);
-    setHideLabel(false);
-    setLabelPosition('right');
-  };
-
-  const handleAddCmd = () => {
-    if (!cmdCode || !cmdPath) return;
-    onUpdateCommands([...commands, { code: cmdCode.toLowerCase(), path: cmdPath }]);
-    setCmdCode('');
-    setCmdPath('');
+    setEditingId(null); setLabel(''); setPattern(''); setStyle('full'); setColor(accent); setStrength(0); setHideLabel(false); setLabelPosition('right');
   };
 
   const startEditCmd = (cmd: CommandMapping) => {
     setEditingCmdCode(cmd.code);
     setCmdCode(cmd.code.toUpperCase());
     setCmdPath(cmd.path);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleUpdateCmd = () => {
-    if (!cmdCode || !cmdPath || !editingCmdCode) return;
-    onUpdateCommands(commands.map(c => 
-      c.code === editingCmdCode ? { code: cmdCode.toLowerCase(), path: cmdPath } : c
-    ));
-    cancelEditCmd();
+  const handleAddCmd = () => {
+    const code = cmdCode.trim().toLowerCase();
+    const path = cmdPath.trim();
+    if (!code || !path) return;
+
+    if (editingCmdCode) {
+      onUpdateCommands(commands.map(c => c.code === editingCmdCode ? { code, path } : c));
+      setEditingCmdCode(null);
+    } else {
+      if (commands.find(c => c.code === code)) return;
+      onUpdateCommands([...commands, { code, path }]);
+    }
+    setCmdCode(''); setCmdPath('');
   };
 
-  const cancelEditCmd = () => {
-    setEditingCmdCode(null);
-    setCmdCode('');
-    setCmdPath('');
-  };
+  const filteredShortcuts = useMemo(() => {
+    const search = shortcutSearch.toLowerCase().trim();
+    return [...commands]
+      .filter(c => c.code.toLowerCase().includes(search) || c.path.toLowerCase().includes(search))
+      .sort((a, b) => a.code.localeCompare(b.code));
+  }, [commands, shortcutSearch]);
 
-  const removeRule = (id: string) => onUpdateRules(rules.filter(r => r.id !== id));
-  const removeCmd = (code: string) => onUpdateCommands(commands.filter(c => c.code !== code));
+  const Kbd = ({ children }: { children?: React.ReactNode }) => (
+    <kbd className="px-1.5 py-0.5 rounded bg-black/40 text-[9px] font-black border border-white/10 text-white uppercase mx-1">{children}</kbd>
+  );
 
   return (
-    <div className="flex-1 bg-[#1a2c33] text-white p-4 md:p-6 lg:p-10 overflow-y-auto font-sans">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-6 text-center flex flex-col items-center">
-          <img src="images/HN128.png" className="w-12 h-12 mb-3 rounded-xl shadow-2xl" alt="Halo Navigator" />
-          <h2 className="text-base font-black uppercase tracking-[0.3em] opacity-90">Halo Navigator Dashboard</h2>
+    <div className={`flex-1 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-slate-50'} text-inherit p-6 md:p-10 lg:p-12 overflow-y-auto no-scrollbar`}>
+      <div className="max-w-7xl ml-0 mr-auto space-y-10 pb-20">
+        <div className="flex items-center justify-between border-b pb-8" style={{ borderColor: isDarkMode ? 'rgba(255,255,255,0.05)' : '#e2e8f0' }}>
+           <div className="flex items-center gap-5">
+              <div className="w-14 h-14 rounded-2xl shadow-2xl flex items-center justify-center bg-black/20 overflow-hidden ring-1 ring-white/10">
+                <img src="images/HN128.png" className="w-10 h-10 object-contain" alt="Logo" />
+              </div>
+              <h2 className={`text-xl font-black uppercase tracking-[0.4em] ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Navigator Hub</h2>
+           </div>
+           <div className="flex gap-4">
+              <button onClick={onSave} className="px-8 py-3.5 rounded-full font-black uppercase tracking-[0.25em] shadow-2xl transition-all hover:scale-105 active:scale-95 text-[11px]" style={{ backgroundColor: accent, color: '#0f172a' }}>Deploy Settings</button>
+           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-6">
-          <div className="space-y-6">
-            {/* Rule Management */}
-            <div className="bg-white/5 border border-white/10 rounded-[1.2rem] p-5 md:p-6 shadow-2xl">
-              <h3 className="text-[#00ff87] text-[8px] font-black uppercase tracking-widest mb-4 opacity-60">Rule Management</h3>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-white/30 uppercase ml-1">Label</label>
-                    <input value={label} onChange={(e) => setLabel(e.target.value)} type="text" placeholder="Prod" className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-xs focus:outline-none focus:border-[#00ff87]" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          <div className="space-y-8">
+            <div className={`border rounded-[2.5rem] p-8 shadow-2xl ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200'}`}>
+              <h3 className="text-[11px] font-black uppercase tracking-widest mb-6 opacity-60 flex items-center gap-2" style={{ color: accent }}>
+                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accent }} />
+                Environment Visualisation
+              </h3>
+              
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase ml-1 opacity-50">Label</label>
+                    <input value={label} onChange={e => setLabel(e.target.value)} type="text" className={`rounded-2xl p-3 text-xs w-full focus:ring-1 ring-accent outline-none border-none ${isDarkMode ? 'bg-black/30 text-white' : 'bg-slate-50'}`} placeholder="e.g. Production" />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-white/30 uppercase ml-1">Pattern</label>
-                    <input value={pattern} onChange={(e) => setPattern(e.target.value)} type="text" placeholder="/prod" className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-xs focus:outline-none focus:border-[#00ff87]" />
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase ml-1 opacity-50">URL Pattern</label>
+                    <input value={pattern} onChange={e => setPattern(e.target.value)} type="text" className={`rounded-2xl p-3 text-xs w-full focus:ring-1 ring-accent outline-none border-none ${isDarkMode ? 'bg-black/30 text-white' : 'bg-slate-50'}`} placeholder="tenant.haloitsm.com" />
                   </div>
                 </div>
+                <div className="grid grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase ml-1 opacity-50">Style</label>
+                    <select value={style} onChange={e => setStyle(e.target.value as TabStyleType)} className={`rounded-2xl p-3 text-xs w-full focus:ring-1 ring-accent outline-none border-none appearance-none ${isDarkMode ? 'bg-black/30 text-white' : 'bg-slate-50'}`}><option value="full">Ambient</option><option value="border">Frame</option><option value="top-bar">Bar</option><option value="glow">Glow</option></select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase ml-1 opacity-50">Colour</label>
+                    <div className="relative group h-[42px]">
+                      <input value={color} onChange={e => setColor(e.target.value)} type="color" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                      <div className="w-full h-full rounded-2xl border-none ring-1 ring-white/10 flex items-center px-4 gap-3 bg-black/20">
+                         <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: color }} />
+                         <span className="text-[10px] font-mono opacity-50 uppercase">{color}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-2 p-5 rounded-3xl bg-black/20 ring-1 ring-white/5">
+                  <div className="flex justify-between items-center px-1">
+                    <span className="text-[10px] font-black uppercase opacity-60">Style Width (Strength)</span>
+                    <span className="text-xs font-black" style={{ color: accent }}>{strength}</span>
+                  </div>
+                  <input type="range" min="0" max="10" value={strength} onChange={e => setStrength(parseInt(e.target.value))} className="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-slate-700/50" style={{ accentColor: accent }} />
+                </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2 space-y-1">
-                    <label className="text-[8px] font-black text-white/30 uppercase ml-1">Style</label>
-                    <select value={style} onChange={(e) => setStyle(e.target.value as TabStyleType)} className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-xs focus:outline-none focus:border-[#00ff87]">
-                      <option value="full">Full Overlay</option>
-                      <option value="border">Colored Frame</option>
-                      <option value="top-bar">Accent Bar</option>
-                      <option value="glow">Vignette Glow</option>
+                <div className="grid grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase ml-1 opacity-50">Hide Label</label>
+                    <div className="mt-1 ml-1">
+                      <Toggle checked={hideLabel} onChange={val => setHideLabel(val)} accent={accent} />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase ml-1 opacity-50">Label Position</label>
+                    <select value={labelPosition} onChange={e => setLabelPosition(e.target.value as LabelPosition)} className={`rounded-2xl p-3 text-xs w-full focus:ring-1 ring-accent outline-none border-none appearance-none ${isDarkMode ? 'bg-black/30 text-white' : 'bg-slate-50'}`}>
+                      <option value="right">Right</option>
+                      <option value="center">Centre</option>
+                      <option value="left">Left</option>
                     </select>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-white/30 uppercase ml-1">Color</label>
-                    <div className="relative">
-                      <input value={color} onChange={(e) => setColor(e.target.value)} type="color" className="w-full h-[36px] bg-transparent cursor-pointer border-none p-0 overflow-hidden" />
-                      <div className="absolute inset-0 pointer-events-none rounded-lg border border-white/10" />
-                    </div>
-                  </div>
                 </div>
 
-                <div className="bg-black/20 p-3 rounded-lg space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[8px] font-black uppercase text-white/40">Effect Strength</span>
-                    <span className="text-[#00ff87] font-black text-[10px]">{strength}</span>
-                  </div>
-                  <input type="range" min="0" max="10" value={strength} onChange={(e) => setStrength(parseInt(e.target.value))} className="w-full accent-[#00ff87] h-1 bg-white/10 rounded-full appearance-none cursor-pointer" />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 items-center bg-black/10 p-3 rounded-lg">
-                   <div className="flex items-center gap-2">
-                      <input id="sim-hide-label" type="checkbox" checked={hideLabel} onChange={(e) => setHideLabel(e.target.checked)} className="w-3.5 h-3.5 rounded border-white/10 bg-white/5 accent-[#00ff87]" />
-                      <label htmlFor="sim-hide-label" className="text-[9px] font-bold text-white/50 uppercase cursor-pointer">Hide Label</label>
-                   </div>
-                   <div className="flex items-center gap-2">
-                      <span className="text-[9px] font-bold text-white/30 uppercase">Pos:</span>
-                      <select value={labelPosition} onChange={(e) => setLabelPosition(e.target.value as LabelPosition)} className="flex-1 bg-black/20 border border-white/5 rounded p-1.5 text-[9px] font-black uppercase focus:outline-none">
-                        <option value="left">Left</option>
-                        <option value="center">Center</option>
-                        <option value="right">Right</option>
-                      </select>
-                   </div>
-                </div>
-
-                <div className="flex gap-2">
-                   {editingId ? (
-                     <>
-                        <button onClick={resetRuleForm} className="flex-1 bg-white/5 py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all">Cancel</button>
-                        <button onClick={handleUpdateRule} className="flex-[2] bg-[#00ff87] text-[#1a2c33] py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest hover:brightness-110 shadow-lg shadow-[#00ff87]/10 transition-all">Update Rule</button>
-                     </>
-                   ) : (
-                     <button onClick={handleCreateRule} className="w-full bg-[#00ff87] text-[#1a2c33] py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest hover:brightness-110 shadow-lg shadow-[#00ff87]/10 flex items-center justify-center gap-2 transition-all">
-                       <PlusIcon className="w-4 h-4" /> Register Rule
-                     </button>
-                   )}
-                </div>
+                <button onClick={editingId ? handleUpdateRule : handleCreateRule} className="w-full py-4 rounded-2xl font-black text-xs uppercase shadow-2xl active:scale-95 transition-all hover:brightness-110" style={{ backgroundColor: accent, color: '#0f172a' }}>{editingId ? 'Update Existing Rule' : 'Register New Environment'}</button>
               </div>
             </div>
-
-            <div className="space-y-2">
-               {rules.map(rule => (
-                 <div key={rule.id} className={`bg-white/5 border rounded-[1rem] p-4 flex items-center gap-4 group transition-all min-w-0 ${editingId === rule.id ? 'border-[#00ff87] ring-1 ring-[#00ff87]/20' : 'border-white/5 hover:border-[#00ff87]/20'}`}>
-                    <div className="w-6 h-6 rounded-md shadow-lg flex-shrink-0" style={{ backgroundColor: rule.color }} />
+            <div className="space-y-4">
+              <span className="text-[10px] font-black uppercase tracking-widest px-4 opacity-50">Active Rules</span>
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 no-scrollbar">
+                {rules.map(rule => (
+                  <div key={rule.id} className={`p-4 border rounded-[1.8rem] flex items-center gap-5 group transition-all ${editingId === rule.id ? 'ring-2 border-accent scale-[1.02] bg-accent/5 shadow-2xl' : 'bg-white/5 border-white/5 hover:bg-white/10'}`} style={{ borderColor: editingId === rule.id ? accent : undefined }}>
+                    <div className="w-10 h-10 rounded-2xl flex items-center justify-center relative shadow-inner ring-1 ring-white/10" style={{ backgroundColor: rule.color }}>
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-black text-xs truncate">{rule.label} <span className="text-[8px] text-white/20 uppercase ml-2">{rule.styleType}</span></h4>
-                      <p className="font-mono text-[9px] text-white/30 truncate">{rule.pattern}</p>
+                      <h4 className="font-black text-sm tracking-tight">{rule.label}</h4>
+                      <p className="font-mono text-[10px] opacity-30 truncate">{rule.pattern}</p>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
-                      <button onClick={() => startEdit(rule)} className="p-2 text-white/40 hover:text-[#00ff87] bg-white/5 rounded-md hover:bg-white/10"><EditIcon className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => removeRule(rule.id)} className="p-2 text-white/40 hover:text-red-400 bg-white/5 rounded-md hover:bg-white/10"><TrashIcon className="w-3.5 h-3.5" /></button>
+                    <div className="flex items-center gap-1 opacity-100 transition-all">
+                      <button onClick={() => startEdit(rule)} className="p-2.5 rounded-xl hover:bg-black/20 text-indigo-400" title="Edit Rule"><EditIcon className="w-4 h-4" /></button>
+                      <button onClick={() => onUpdateRules(rules.filter(r => r.id !== rule.id))} className="p-2.5 rounded-xl hover:text-red-500 hover:bg-black/20" title="Delete Rule"><TrashIcon className="w-4 h-4" /></button>
                     </div>
-                 </div>
-               ))}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="bg-white/5 border border-white/10 rounded-[1.2rem] p-5 md:p-6 shadow-2xl">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-[#00ff87] text-[8px] font-black uppercase tracking-widest opacity-60">
-                  {editingCmdCode ? `Edit Shortcut: #${editingCmdCode.toUpperCase()}` : 'Navigator Shortcuts'}
-                </h3>
-                {editingCmdCode && (
-                  <button onClick={cancelEditCmd} className="text-white/20 hover:text-white"><XIcon className="w-3 h-3" /></button>
-                )}
-              </div>
+          <div className="space-y-8">
+            <div className={`border rounded-[2.5rem] p-8 shadow-2xl ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200'}`}>
+               <h3 className="text-[11px] font-black uppercase tracking-widest mb-6 opacity-60 flex items-center gap-2" style={{ color: accent }}>
+                 <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accent }} />
+                 Jump Settings
+               </h3>
+               <div className="grid grid-cols-[100px_1fr] gap-5 mb-6">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase ml-1 opacity-50">Code</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-3 text-xs font-black opacity-40">#</span>
+                      <input value={cmdCode} onChange={e => setCmdCode(e.target.value)} type="text" className={`rounded-2xl pl-7 p-3 text-xs w-full focus:ring-1 ring-accent outline-none border-none ${isDarkMode ? 'bg-black/30 text-white' : 'bg-slate-50'}`} placeholder="AS" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase ml-1 opacity-50">Path/URL</label>
+                    <input value={cmdPath} onChange={e => setCmdPath(e.target.value)} type="text" className={`rounded-2xl p-3 text-xs w-full focus:ring-1 ring-accent outline-none border-none ${isDarkMode ? 'bg-black/30 text-white' : 'bg-slate-50'}`} placeholder="e.g. /assets" />
+                  </div>
+               </div>
+               <button onClick={handleAddCmd} className="w-full py-4 rounded-2xl font-black text-xs uppercase shadow-2xl active:scale-95 transition-all hover:brightness-110" style={{ backgroundColor: accent, color: '#0f172a' }}>{editingCmdCode ? 'Update Jump' : 'Register Jump'}</button>
+               <div className="mt-10 space-y-4">
+                 <div className="flex items-center justify-between px-4">
+                    <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Registered Jumps</span>
+                    <div className="relative group">
+                       <SearchIcon className="absolute left-3 top-2.5 w-3.5 h-3.5 opacity-30 group-focus-within:opacity-100 transition-opacity" />
+                       <input 
+                        type="text" 
+                        placeholder="Contextual search..." 
+                        value={shortcutSearch}
+                        onChange={(e) => setShortcutSearch(e.target.value)}
+                        className={`text-[11px] pl-10 pr-4 py-2 rounded-full border-none focus:ring-1 ring-accent outline-none transition-all w-56 ${isDarkMode ? 'bg-black/30' : 'bg-slate-100'}`} 
+                       />
+                    </div>
+                 </div>
+                 <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 no-scrollbar">
+                   {filteredShortcuts.map((cmd, i) => (
+                     <div key={i} className={`flex items-center gap-5 p-4 border rounded-[1.5rem] group transition-all ${editingCmdCode === cmd.code ? 'ring-2 border-accent scale-[1.02] bg-accent/5 shadow-2xl' : 'bg-white/5 border-white/5 hover:bg-white/10'}`} style={{ borderColor: editingCmdCode === cmd.code ? accent : undefined }}>
+                       <div className="min-w-[50px] flex-shrink-0 flex items-center justify-center font-black text-xs tracking-wider" style={{ color: accent }}>#{cmd.code.toUpperCase()}</div>
+                       <p className="flex-1 text-[11px] truncate opacity-40 font-mono tracking-tight">{cmd.path}</p>
+                       <div className="flex items-center gap-1 opacity-100 transition-all">
+                          <button onClick={() => startEditCmd(cmd)} className="p-2 rounded-xl hover:bg-black/20 text-indigo-400" title="Edit Jump"><EditIcon className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => onUpdateCommands(commands.filter((c) => c.code !== cmd.code))} className="p-2 rounded-xl hover:text-red-500 hover:bg-black/20" title="Delete Jump"><TrashIcon className="w-3.5 h-3.5" /></button>
+                       </div>
+                     </div>
+                   ))}
+                   {filteredShortcuts.length === 0 && (
+                     <div className="py-12 text-center opacity-30 text-[11px] font-black uppercase tracking-widest">No matching jumps found</div>
+                   )}
+                 </div>
+               </div>
+            </div>
+
+            <div className={`border rounded-[2.5rem] p-8 shadow-2xl ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200'}`}>
+              <h3 className="text-[11px] font-black uppercase tracking-widest mb-6 opacity-60 flex items-center gap-2" style={{ color: accent }}>
+                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accent }} />
+                Documentation & Terminal Shortcuts
+              </h3>
               <div className="space-y-4">
-                <div className="grid grid-cols-[65px_1fr] gap-2">
-                   <div className="relative">
-                     <span className="absolute left-2.5 top-2.5 text-[#00ff87] font-black">#</span>
-                     <input value={cmdCode} onChange={(e) => setCmdCode(e.target.value)} type="text" placeholder="KB" className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 pl-7 text-xs focus:outline-none focus:border-[#00ff87]" />
-                   </div>
-                   <input value={cmdPath} onChange={(e) => setCmdPath(e.target.value)} type="text" placeholder="/kb" className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-xs focus:outline-none focus:border-[#00ff87]" />
-                </div>
-                <div className="flex gap-2">
-                  {editingCmdCode && (
-                    <button onClick={cancelEditCmd} className="flex-1 bg-white/5 py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all">Cancel</button>
-                  )}
-                  <button onClick={editingCmdCode ? handleUpdateCmd : handleAddCmd} className={`${editingCmdCode ? 'flex-[2]' : 'w-full'} bg-[#00ff87] text-[#1a2c33] py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest hover:brightness-110 transition-all`}>
-                    {editingCmdCode ? 'Update Shortcut' : 'Add Shortcut'}
-                  </button>
-                </div>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-5 rounded-[2rem] bg-black/10 border border-white/5 space-y-2">
+                       <h4 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2" style={{ color: accent }}>
+                          <CommandIcon className="w-3.5 h-3.5" /> Navigation
+                       </h4>
+                       <ul className="space-y-2 text-[10px] opacity-60">
+                          <li><Kbd>#</Kbd> + <Kbd>CODE</Kbd> + <Kbd>Enter</Kbd> ➔ Jump</li>
+                          <li><Kbd>#</Kbd> + <Kbd>CODE</Kbd> + <Kbd>Tab</Kbd> ➔ New Browser Tab</li>
+                          <li className="pt-1 border-t border-white/5">
+                             <span className="font-black text-white">NT [SEARCH]</span> ➔ Opens module in a new <b>Halo Internal Tab</b>.
+                          </li>
+                       </ul>
+                    </div>
+                    <div className="p-5 rounded-[2rem] bg-black/10 border border-white/5 space-y-2">
+                       <h4 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2" style={{ color: accent }}>
+                          <SparklesIcon className="w-3.5 h-3.5" /> System Automations
+                       </h4>
+                       <ul className="space-y-2 text-[10px] opacity-60">
+                          <li><span className="font-black text-white">FILL</span> ➔ Run Smart Fill Protocol</li>
+                          <li><span className="font-black text-white">PRETTY</span> ➔ SQL Format Protocol</li>
+                          <li><span className="font-black text-white">CAP</span> ➔ Snapshot Form to Vault</li>
+                          <li><span className="font-black text-white">CAP [SEARCH]</span> ➔ Inject Snapshot</li>
+                       </ul>
+                    </div>
+                 </div>
               </div>
             </div>
 
-            <div className="space-y-2">
-              {commands.map(cmd => {
-                const isAbs = cmd.path.includes('://');
-                return (
-                  <div key={cmd.code} className={`flex items-center gap-3 p-3 rounded-lg border group transition-all min-w-0 ${editingCmdCode === cmd.code ? 'bg-[#00ff87]/5 border-[#00ff87]/40' : 'bg-black/10 border-white/5 hover:border-[#00ff87]/20'}`}>
-                    <div className={`w-8 h-8 rounded-md flex-shrink-0 flex items-center justify-center font-black text-[9px] ${isAbs ? 'bg-indigo-500/10 text-indigo-400' : 'bg-[#00ff87]/10 text-[#00ff87]'}`}>#{cmd.code.toUpperCase()}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-[10px] font-mono truncate ${isAbs ? 'text-indigo-300/40' : 'text-white/30'}`}>{cmd.path}</p>
+            <div className={`border rounded-[2.5rem] p-8 shadow-2xl ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200'}`}>
+              <h3 className="text-[11px] font-black uppercase tracking-widest mb-6 opacity-60 flex items-center gap-2" style={{ color: accent }}>
+                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accent }} />
+                Maintenance & Backup
+              </h3>
+              <div className="grid grid-cols-2 gap-5">
+                 <button 
+                  onClick={onExport}
+                  className="flex flex-col items-center gap-3 p-6 rounded-[2rem] bg-black/20 border border-white/5 hover:bg-black/30 transition-all group"
+                 >
+                    <DownloadIcon className="w-7 h-7 text-emerald-400 group-hover:scale-110 transition-transform" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Export Hub Data</span>
+                 </button>
+                 <div className="relative h-full">
+                    <input 
+                      type="file" 
+                      accept=".json" 
+                      onChange={onImport}
+                      className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                    />
+                    <div className="flex flex-col items-center gap-3 p-6 rounded-[2rem] bg-black/20 border border-white/5 group h-full">
+                        <UploadIcon className="w-7 h-7 text-emerald-400 group-hover:scale-110 transition-transform" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Restore Configuration</span>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 flex-shrink-0 transition-all">
-                      <button onClick={() => startEditCmd(cmd)} className="p-2 text-white/40 hover:text-[#00ff87] bg-white/5 rounded-md hover:bg-white/10"><EditIcon className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => removeCmd(cmd.code)} className="p-2 text-white/40 hover:text-red-400 bg-white/5 rounded-md hover:bg-white/10"><TrashIcon className="w-3.5 h-3.5" /></button>
-                    </div>
-                  </div>
-                );
-              })}
+                 </div>
+              </div>
+              <div className="mt-6 grid grid-cols-1 gap-3">
+                 <button onClick={onFormatSql} className="w-full py-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 shadow-2xl border border-white/5 transition-all hover:scale-105 active:scale-95" style={{ backgroundColor: `${accent}15`, color: accent }}>
+                   <CodeBracketIcon className="w-4 h-4" /> Prettify SQL
+                 </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[280px] px-4 z-[200]">
-        <button onClick={onSave} className="w-full h-12 bg-[#00ff87] text-[#1a2c33] font-black uppercase tracking-[0.2em] rounded-2xl shadow-[0_8px_25px_rgba(0,255,135,0.2)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 text-[10px]">
-           <SaveIcon className="w-4 h-4" /> Deploy All Settings
-        </button>
       </div>
     </div>
   );

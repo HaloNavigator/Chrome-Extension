@@ -56,6 +56,7 @@ const schemaString = `
   CREATE TABLE [Stocklocation] ([SLocid] int PRIMARY KEY, [SLocName] nvarchar) GO
   CREATE TABLE [Stocklevel] ([SLid] int PRIMARY KEY, [SLQty] int, [SLlocation] int) GO
   CREATE TABLE [Stockbin] ([SBid] int PRIMARY KEY, [SBname] nvarchar, [STBSsitenum] int) GO
+  CREATE TABLE [Stockbin] ([SBid] int PRIMARY KEY, [SBname] nvarchar, [STBSsitenum] int) GO
   CREATE TABLE [Stdrequest] ([SRid] int PRIMARY KEY, [SRTemplate] nvarchar) GO
   CREATE TABLE [Supplier] ([SupplierID] int PRIMARY KEY, [SupplierName] nvarchar, [SHSupplierID] int) GO
   CREATE TABLE [Supplierorderheader] ([SHid] int PRIMARY KEY, [SHSupplierID] int, [SHOHID] int) GO
@@ -116,10 +117,36 @@ const requestTypeMap = { 'All': [], 'Incident': [1], 'Change': [2], 'Problem': [
 let selectedTables = {};
 let selectedJoins = {};
 let whereConditions = [];
-let selectedAggregates = [];
-let groupByColumns = [];
 let tableSearchTerm = '';
+let joinSearchTerm = '';
 let selectedRequestType = 'All';
+
+async function applyTheme() {
+    try {
+        const data = await chrome.storage.local.get(['themeConfig']);
+        if (data.themeConfig) {
+            const config = data.themeConfig;
+            document.documentElement.style.setProperty('--accent', config.primaryColor);
+            if (config.mode === 'light') {
+                document.documentElement.style.setProperty('--bg', '#f1f5f9');
+                document.documentElement.style.setProperty('--panel-bg', '#ffffff');
+                document.documentElement.style.setProperty('--input-bg', '#f8fafc');
+                document.documentElement.style.setProperty('--text', '#1e293b');
+                document.documentElement.style.setProperty('--border', '#e2e8f0');
+                document.documentElement.style.setProperty('--btn-secondary', '#cbd5e1');
+            } else {
+                document.documentElement.style.setProperty('--bg', 'rgba(15, 23, 42, 0.95)');
+                document.documentElement.style.setProperty('--panel-bg', '#1a202c');
+                document.documentElement.style.setProperty('--input-bg', '#0a0c10');
+                document.documentElement.style.setProperty('--text', '#e2e8f0');
+                document.documentElement.style.setProperty('--border', '#2d3748');
+                document.documentElement.style.setProperty('--btn-secondary', '#2c3e50');
+            }
+        }
+    } catch (e) {
+        console.warn("Theme application failed - using defaults.", e);
+    }
+}
 
 function parseSchema(sql) {
     const blocks = sql.split(/\s*GO\s*/).filter(block => block.trim() !== '');
@@ -147,11 +174,6 @@ function parseSchema(sql) {
 
 function generateQuery() {
     const selectedFields = [];
-    selectedAggregates.forEach(agg => {
-        const column = agg.column ? `[${agg.table}].[${agg.column}]` : '*';
-        selectedFields.push(`${agg.func}(${column}) AS ${agg.alias}`);
-    });
-
     for (const t in selectedTables) {
         if (selectedTables[t].isStar) {
             selectedFields.push(`[${t}].*`);
@@ -161,7 +183,7 @@ function generateQuery() {
     }
 
     const joins = Object.values(selectedJoins);
-    const hasSelections = selectedFields.length > 0 || joins.length > 0 || selectedAggregates.length > 0;
+    const hasSelections = selectedFields.length > 0 || joins.length > 0;
     if (!hasSelections) {
         document.getElementById('query-output-sql').value = '';
         return;
@@ -183,13 +205,11 @@ function generateQuery() {
         if (ids && ids.length) whereClause += `\n    AND [Faults].[RequestTypeNew] IN (${ids.join(', ')})`;
     }
     whereConditions.forEach(c => {
-        whereClause += `\n    ${c.operatorType} [${c.table}].[${c.column}] ${c.operator} '${c.value}'`;
+        if(c.value.trim() !== '') {
+           whereClause += `\n    ${c.operatorType} [${c.table}].[${c.column}] ${c.operator} '${c.value}'`;
+        }
     });
     query += `\nWHERE ${whereClause}`;
-
-    if (groupByColumns.length > 0) {
-        query += `\nGROUP BY\n    ${groupByColumns.map(c => `[${c.table}].[${c.name}]`).join(', ')}`;
-    }
 
     document.getElementById('query-output-sql').value = query;
     updateJoinInfoPanel();
@@ -201,7 +221,6 @@ function renderSchema() {
     if (!container) return;
     container.innerHTML = '';
 
-    // Hard prioritize 'Faults'
     const sorted = Object.keys(tables).sort((a, b) => {
         const la = a.toLowerCase();
         const lb = b.toLowerCase();
@@ -266,25 +285,31 @@ function updateJoinInfoPanel() {
     const active = new Set([...Object.keys(selectedTables), ...Object.values(selectedJoins).flatMap(j => [j.from, j.to])]);
     if (!active.size) active.add('Faults');
 
-    allPotentialJoins.forEach(join => {
-        if (active.has(join.from) || active.has(join.to)) {
-            const key = `${join.from}-${join.to}`;
-            const row = document.createElement('div');
-            row.className = 'join-card';
-            const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.checked = !!selectedJoins[key];
-            cb.onchange = (e) => {
-                if (e.target.checked) selectedJoins[key] = join;
-                else delete selectedJoins[key];
-                generateQuery();
-            };
-            row.appendChild(cb);
-            const info = document.createElement('div');
-            info.innerHTML = `<div style="font-size:10px; font-weight:800; color:var(--accent);">${join.from} → ${join.to}</div><div style="font-size:9px; color:#666; font-family: monospace;">${join.condition}</div>`;
-            row.appendChild(info);
-            list.appendChild(row);
-        }
+    const filteredJoins = allPotentialJoins.filter(join => {
+        const isTarget = active.has(join.from) || active.has(join.to);
+        if (!isTarget) return false;
+        if (!joinSearchTerm) return true;
+        const search = joinSearchTerm.toLowerCase();
+        return join.from.toLowerCase().includes(search) || join.to.toLowerCase().includes(search);
+    });
+
+    filteredJoins.forEach(join => {
+        const key = `${join.from}-${join.to}`;
+        const row = document.createElement('div');
+        row.className = 'join-card';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !!selectedJoins[key];
+        cb.onchange = (e) => {
+            if (e.target.checked) selectedJoins[key] = join;
+            else delete selectedJoins[key];
+            generateQuery();
+        };
+        row.appendChild(cb);
+        const info = document.createElement('div');
+        info.innerHTML = `<div class="join-label">${join.from} → ${join.to}</div><div class="join-cond">${join.condition}</div>`;
+        row.appendChild(info);
+        list.appendChild(row);
     });
 }
 
@@ -300,9 +325,85 @@ function updateSelectors() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+function renderFilters() {
+    const rtContainer = document.getElementById('request-type-container');
+    if(rtContainer) {
+        const select = document.createElement('select');
+        select.className = 'search-input';
+        select.style.marginBottom = '0';
+        Object.keys(requestTypeMap).forEach(key => {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = key;
+            select.appendChild(opt);
+        });
+        select.onchange = (e) => { selectedRequestType = e.target.value; generateQuery(); };
+        rtContainer.appendChild(select);
+    }
+
+    document.getElementById('add-where-btn').onclick = () => {
+        const id = Math.random().toString(36).substring(7);
+        whereConditions.push({ id, table: 'Faults', column: 'Faultid', operator: '=', value: '', operatorType: 'AND' });
+        renderWhereConditions();
+    };
+}
+
+function renderWhereConditions() {
+    const container = document.getElementById('where-conditions-container');
+    if(!container) return;
+    container.innerHTML = '';
+
+    const active = new Set([...Object.keys(selectedTables), ...Object.values(selectedJoins).flatMap(j => [j.from, j.to])]);
+    if (!active.size) active.add('Faults');
+    const cols = [];
+    active.forEach(t => { if(tables[t]) tables[t].columns.forEach(c => cols.push({ table: t, name: c.name })); });
+
+    whereConditions.forEach((c, idx) => {
+        const div = document.createElement('div');
+        div.className = 'join-card flex-col';
+        div.style.padding = '8px';
+        
+        div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+               <span class="label-sub" style="margin:0;">Condition ${idx+1}</span>
+               <button class="remove-where" data-id="${c.id}" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:10px; font-weight:900;">✕</button>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 40px 1fr; gap:5px;">
+                <select class="search-input col-sel" style="margin:0; padding:5px; height:28px; font-size:10px;">
+                    ${cols.map(col => `<option value="${col.table}.${col.name}" ${c.table === col.table && c.column === col.name ? 'selected' : ''}>[${col.table}].[${col.name}]</option>`).join('')}
+                </select>
+                <select class="search-input op-sel" style="margin:0; padding:5px; height:28px; font-size:10px;">
+                    <option value="=" ${c.operator === '=' ? 'selected' : ''}>=</option>
+                    <option value="<>" ${c.operator === '<>' ? 'selected' : ''}>!=</option>
+                    <option value="LIKE" ${c.operator === 'LIKE' ? 'selected' : ''}>LIKE</option>
+                </select>
+                <input type="text" class="search-input val-sel" placeholder="Value..." value="${c.value}" style="margin:0; padding:5px; height:28px; font-size:10px;">
+            </div>
+        `;
+
+        div.querySelector('.col-sel').onchange = (e) => {
+            const [t, col] = e.target.value.split('.');
+            c.table = t; c.column = col;
+            generateQuery();
+        };
+        div.querySelector('.op-sel').onchange = (e) => { c.operator = e.target.value; generateQuery(); };
+        div.querySelector('.val-sel').oninput = (e) => { c.value = e.target.value; generateQuery(); };
+        div.querySelector('.remove-where').onclick = () => {
+            whereConditions = whereConditions.filter(wc => wc.id !== c.id);
+            renderWhereConditions();
+            generateQuery();
+        };
+
+        container.appendChild(div);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await applyTheme();
     parseSchema(schemaString);
+    
     document.getElementById('table-search').oninput = (e) => { tableSearchTerm = e.target.value; renderSchema(); };
+    document.getElementById('join-search').oninput = (e) => { joinSearchTerm = e.target.value; updateJoinInfoPanel(); };
     
     const copyBtn = document.getElementById('copy-btn-sql');
     copyBtn.onclick = () => {
@@ -311,15 +412,15 @@ document.addEventListener('DOMContentLoaded', () => {
           navigator.clipboard.writeText(val);
           const original = copyBtn.textContent;
           copyBtn.textContent = 'SQL COPIED!';
-          copyBtn.style.backgroundColor = '#818cf8';
           setTimeout(() => {
             copyBtn.textContent = original;
-            copyBtn.style.backgroundColor = '';
           }, 2000);
         }
     };
 
     document.getElementById('clear-btn-sql').onclick = () => window.location.reload();
+    
     renderSchema();
+    renderFilters();
     generateQuery();
 });

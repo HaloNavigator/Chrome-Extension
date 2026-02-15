@@ -1,5 +1,5 @@
 {
-  "name": "Halo Navigator Simulator",
-  "description": "A simulation of the Halo Navigator Chrome extension which applies distinct background colors to browser tabs based on specific HaloITSM URL patterns (e.g., Dev, UAT, Production).",
+  "name": "Halo Navigator V2.5.3.4.5 HN",
+  "description": "Visuals\n",
   "requestFramePermissions": []
 }
