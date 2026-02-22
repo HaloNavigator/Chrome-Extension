@@ -1,11 +1,12 @@
 {
-  "name": "halo-navigator-simulator",
+  "name": "halo-navigator-v2.5.5.1-action-enhancements",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "lint": "tsc --noEmit",
     "preview": "vite preview"
   },
   "dependencies": {
